@@ -238,9 +238,9 @@ end
 ###------- PREPARAZIONE DEL SAMPLER ------------###
 
 #Numero di iterazioni
-I_max = 90000;
+I_max = 30000;
 #burn_in
-burn_in = 30000;
+burn_in = 10000;
 #thin 
 thin = 1
 
@@ -320,9 +320,6 @@ for i = 2:I_max
         
 
     end
-
-    #Identifico la matrice B
-    B[i-1,1,:,:] = GS(B[i-1,1,:,:])
 
     #Ricavo i parametri necessari per campionare dalla full conditional di Sigma
     nu_s = nu+N*p;
