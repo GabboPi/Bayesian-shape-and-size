@@ -110,6 +110,7 @@ function metropolis(R,Y,mu,I_Sigma,last)
         #Calcolo le proposte (simmetriche) per gli angoli
         theta1 = rand(Normal(last[1],0.1))
         theta2 = rand(Normal(last[2],0.1))
+        #Mi assicuro che l'angolo 2 sia tra [0,π)
         theta2 = theta2%pi
         theta3 = rand(Normal(last[3],0.1))
 
