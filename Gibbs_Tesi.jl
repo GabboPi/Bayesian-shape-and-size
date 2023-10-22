@@ -17,6 +17,7 @@ function Helm(k)
 end
 
 function Rotation(theta1,theta2,theta3)
+    #Funzione che prende in input i 3 angoli di Eulero con convenzione ZXZ e restituisce la corrispondente matrice di rotazione in R3
     R1 = [
         cos(theta1) sin(theta1) 0;
         -sin(theta1) cos(theta1) 0;
@@ -40,6 +41,10 @@ function Rotation(theta1,theta2,theta3)
 end
 
 function sample(B,type)
+    #Funzione che campiona dalla full conditional degli angoli di Eulero
+    #Le full conditional sono ricavate a partire dalla amtrix Fisher definita su SO(3), dove la densità è proporzionale a exp(R'B)
+    #Se type = 1 allora campiona da una VonMises con densità proporzionale a exp( rho * cos(theta-gamma) )
+    # Se type = 2 allora campiona da una densità simil-VonMises di densità prop. a exp( rho * cos(theta-gamma) ) * sin(theta), con dominio [0,pi)
     flag = 0
     i = 0
 
@@ -53,10 +58,13 @@ function sample(B,type)
         return NaN
     end
 
+    #Calcolo rho, sin(gamma) e cos(gamma)
     rho = sqrt(a^2 + b^2)
     cgamma = a/rho
     sgamma = b/rho
 
+    #Siccome la funzione arcocoseno ha come dominio (-pi/2, pi/2) devo controllare, nel caso in cui stia campionando da 
+    #una Von-Mises, che l'angolo non sia fupri da questo dominio. A tale scopo, controllo il segno del seno. 
     if type == 1
         if(sgamma > 0)
             gamma = acos(cgamma)
@@ -64,22 +72,27 @@ function sample(B,type)
             gamma = 2*pi-acos(cgamma)
         end
     else
+        #Se sto campionando da una simil-Von mises di dominio [o,π) il problema non si pone 
         gamma = acos(cgamma)
     end
 
 
 
     while flag == 0
+        #Se rho vale zero ottengo un caso degenere, cioè un0uniforme su [o, 2π]
         if rho == 0
             y = rand(Uniform(0,2pi))
         else
+            #Campiono da una VonMises
             y = rand(VonMises(gamma,rho))
         end
-        #y = y%pi
+        #Campiono da un'uniforme (0,1)
         u = rand(Uniform(0,1))
 
+        #Se type = 2 uso la VonMises come Kernel e faccio accept-reject, in cui il rapporto è pari a sin(y)
         if( (u <= sin(y)) & (type == 2))
             return y
+        #Se type = 1 uso semplciemente il campione della VonMises
         elseif type == 1
             return y
         i = i+1
@@ -89,14 +102,12 @@ function sample(B,type)
 end
 
 function metropolis(R,Y,mu,I_Sigma,last)
-    #A = mu'*inv(Sigma)*Y  
+    #Prototipo di step Metropolis: da rivedere perchè molto lento.
     X = Y*R
     flag = 0
-    while flag == 0     
-        #theta1 = rand(VonMises(0,10))
-        #theta2 = rand(VonMises(0,10))
-        #theta2 = theta2%pi
-        #theta3 = rand(VonMises(0,10))
+    while flag == 0
+        
+        #Calcolo le proposte (simmetriche) per gli angoli
         theta1 = rand(Normal(last[1],0.1))
         theta2 = rand(Normal(last[2],0.1))
         theta2 = theta2%pi
@@ -108,7 +119,6 @@ function metropolis(R,Y,mu,I_Sigma,last)
 
         num = -0.5*tr( (X1-mu)'*I_Sigma*(X1-mu))
         den = -0.5*tr( (X-mu)'*I_Sigma*(X-mu))
-        #alpha = min(1,exp(tr(R1*A)-(tr(R*A))))
 
         alpha = min(0, num-den)
 
@@ -121,6 +131,8 @@ function metropolis(R,Y,mu,I_Sigma,last)
 end
 
 function GS(B)
+    #Funzione che restituisce una versioen identificata ddella mtrice di rotazione considerata
+    #Si tratta di una semplice ortogonalizzazione di Gram-Schmidt
     p = size(B)[2]
     A = B'
     V = zeros(p,p);
@@ -132,6 +144,7 @@ function GS(B)
     V[:,3] = A[:,3] - ((A[:,3]'*V[:,1])*V[:,1]) - ((A[:,3]'*V[:,2])*V[:,2])
     V[:,3] = V[:,3]/norm(V[:,3])
 
+    #Scelgo l'ultima colonna in modo da avere una amtric ein SO(3)
     if (det(V)!=1)
         V[:,3] = -V[:,3]
     end
@@ -140,6 +153,7 @@ function GS(B)
 end
 
 function Riemann_distance(mu, mu_approx)
+    #Funzione che calcola la distanza riemanniana tar due confgurazioni di forma
     Z1 = mu/norm(mu)
     Z2 = mu_approx/norm(mu_approx)
 
@@ -374,7 +388,7 @@ for i = 2:I_max
 
     end
     if(i%1000==0)
-        print(i, '\n')
+        print("Iteration counter: ",i, '\n')
     end
 end
 
