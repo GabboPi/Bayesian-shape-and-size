@@ -201,6 +201,67 @@ function makedataset(N,K,p,mu,VarCov,)
     return samples, Y, R_true
 end
 
+function mcmc_setup(I_max,burn_in,thin,d,K,p,N)
+    #----Inizializzazione die parametri-----#
+    # - Coefficienti regressivi - #
+    #Tensore per le matrici dei coefficienti regressivi
+    B = zeros(I_max,d,K,p);
+    #Valore iniziale: scelgo la amtrice identità per evitare errori legati alla non hermitianità
+    B[1,1,:,:] = I(p)
+    # Parametri necessari per la full conditional
+    M = zeros(p,K*d);
+    V = zeros(p,K*d,K*d);
+    for l = 1:p
+        V[l,:,:] = 10^4*I(K*d);
+    end
+
+    # - Matrice di varianza e covarianza - #
+    #Parametri necessari pe rla full conditional
+    nu = K+1;
+    Psi = I(K);
+    #Tensore per la matrice di avrianza e covarianza
+    Sigma_est = zeros(I_max,K,K)
+    #Valore iniziale -> matrice identità
+    Sigma_est[1,:,:] = I(K)
+
+
+    # - Angoli e rotazioni - #
+    #Tensore per le matrici di rotazione: una per ogni configurazione 
+    R = zeros(I_max,N,p,p);
+    #Matrice per gli angoli
+    theta = zeros(I_max,N,3)
+    #Inizializzo gli angoli a zero
+    theta[1,:,1] = zeros(N);
+    theta[1,:,2] = zeros(N);
+    theta[1,:,3] = zeros(N);
+
+    #Valori iniziali delle rotazioni
+    for s = 1:N 
+        R[1,s,:,:] = Rotation(theta[1,s,1], theta[1,s,2], theta[1,s,3]);
+    end
+
+    #Tensore dove salvare le configurazioni
+    X = zeros(I_max,N,K,p)
+    return B,M,V,nu,Psi,Sigma_est,theta,R,X
+end
+
+function sample_update!(X,R,Y)
+    for s = 1:N
+        X[s,:,:] = Y[s,:,:]*R[s,:,:]'
+    end
+end
+function mcmc(I_max, burn_in, thin, d,K,p,N,Z,VarCov,Y)
+
+    B,M,V,nu,Psi,Sigma_est,theta,R,X = mcmc_setup(I_max,burn_in,thin,d,K,p,N);
+    
+    for i = 2:I_max
+        sample_update!(X[i,:,:,:],R[i-1,:,:,:],Y)
+
+    end
+
+
+end
+
 N = 20; #Numero di configurazioni
 K = 3; #Numero di landmark per ogni configurazione
 d = 1; #Numero di covariate
