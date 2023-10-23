@@ -64,7 +64,7 @@ function sample(B,type)
     sgamma = b/rho
 
     #Siccome la funzione arcocoseno ha come dominio (-pi/2, pi/2) devo controllare, nel caso in cui stia campionando da 
-    #una Von-Mises, che l'angolo non sia fupri da questo dominio. A tale scopo, controllo il segno del seno. 
+    #una Von-Mises, che l'angolo non sia fuori da questo dominio. A tale scopo, controllo il segno del seno. 
     if type == 1
         if(sgamma > 0)
             gamma = acos(cgamma)
@@ -79,7 +79,7 @@ function sample(B,type)
 
 
     while flag == 0
-        #Se rho vale zero ottengo un caso degenere, cioè un0uniforme su [o, 2π]
+        #Se rho vale zero ottengo un caso degenere, cioè un'uniforme su [o, 2π]
         if rho == 0
             y = rand(Uniform(0,2pi))
         else
@@ -92,7 +92,7 @@ function sample(B,type)
         #Se type = 2 uso la VonMises come Kernel e faccio accept-reject, in cui il rapporto è pari a sin(y)
         if( (u <= sin(y)) & (type == 2))
             return y
-        #Se type = 1 uso semplciemente il campione della VonMises
+        #Se type = 1 uso semplcemente il campione della VonMises
         elseif type == 1
             return y
         i = i+1
