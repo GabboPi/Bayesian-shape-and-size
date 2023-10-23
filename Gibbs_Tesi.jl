@@ -315,7 +315,7 @@ for i = 2:I_max
     
     #Campiono dalla full-conditional di beta_l
         B[i,:,:,l] = rand(MvNormal(
-            M_s[l,:], V_s[l,:,:]
+            M_s[l, :], V_s[l, :, :]
         ))
         
 
