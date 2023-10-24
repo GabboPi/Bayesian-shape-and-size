@@ -163,7 +163,7 @@ function Riemann_distance(mu, mu_approx)
     return acos(sum(F.S))
 end
 
-function makedataset(N,K,p,mu,VarCov,)
+function makedataset(N,K,p,mu,VarCov)
     #Tensore dei campioni
     samples = zeros(N,K,p);
     #Tensore delle configurazioni forma-scala
@@ -249,16 +249,125 @@ function sample_update!(X,R,Y)
     for s = 1:N
         X[s,:,:] = Y[s,:,:]*R[s,:,:]'
     end
+    return X
 end
-function mcmc(I_max, burn_in, thin, d,K,p,N,Z,VarCov,Y)
 
-    B,M,V,nu,Psi,Sigma_est,theta,R,X = mcmc_setup(I_max,burn_in,thin,d,K,p,N);
+function mcmc_B!(N,p,K,d,Sigma,Z,V,M,X)
+    B = zeros(d,p,p)
+    M_s = zeros(p,K*d,1);
+    V_s = zeros(p,K*d,K*d);
+    I_Sigma = inv(Sigma)
+    for l = 1:p
+        for s = 1:N
+            V_s[l,:,:] = V_s[l,:,:] + Z'*I_Sigma*Z
+            M_s[l,:] = M_s[l,:] + Z'*I_Sigma*X[s,:,l]
+        end
+        V_s[l,:,:] = V_s[l,:,:] +inv(V[l,:,:])
+        M_s[l,:] = M_s[l,:] +inv(V[l,:,:])*M[l,:]
+
+        V_s[l,:,:] = inv(V_s[l,:,:]);
+        V_s[l,:,:] = Hermitian(V_s[l,:,:])
+        M_s[l,:] = V_s[l,:,:]*M_s[l,:];
     
-    for i = 2:I_max
-        sample_update!(X[i,:,:,:],R[i-1,:,:,:],Y)
+    #Campiono dalla full-conditional di beta_l
+        B[:,:,l] = rand(MvNormal(
+            M_s[l, :], V_s[l, :, :]
+        ))
+    end
+    return B
+end
+
+function mcmc_Sigma!(N,K,p,nu,Psi,X,Z,B)
+        #Ricavo i parametri necessari per campionare dalla full conditional di Sigma
+        nu_s = nu+N*p;
+
+        Psi_s = zeros(K,K);
+        for s = 1:N
+            for l = 1:p
+                Psi_s = Psi_s + (X[s,:,l]-Z*B[:,:,l]')*(X[s,:,l]-Z*B[:,:,l]')'
+            end
+        end
+        Psi_s = Psi_s + Psi
+    
+        #Campiono dalla full di Sigma
+        Sigma = rand(
+            InverseWishart(nu_s, Psi_s)
+        )
+        return Sigma
+end
+
+function mcmc_theta!(N,B,Sigma,theta_last)
+    m = B[1,:,:]
+    theta = zeros(N,3)
+    R = zeros(N,p,p)
+    for s = 1:N
+
+        A = m'*inv(Sigma[:,:])*Y[s,:,:]
+
+        theta1 = theta_last[s,1]
+        theta2 = theta_last[s,2]
+        theta3 = theta_last[s,3]
+
+        #Matrici di rotazione associate ai 3 angoli di Eulero, con convenzione ZXZ
+        R1 = [
+            cos(theta1) sin(theta1) 0;
+            -sin(theta1) cos(theta1) 0;
+            0 0 1
+        ]
+
+        R2 = [
+        1 0 0;
+        0 cos(theta2) sin(theta2);
+        0 -sin(theta2) cos(theta2)
+        
+        ]
+
+        R3 = [
+        cos(theta3) sin(theta3) 0;
+        -sin(theta3) cos(theta3) 0;
+        0 0 1
+        ]
+
+
+        L = R2*R1*A'
+        H = A'*R3*R2
+        D = R1*A'*R3
+
+
+        #Campiono theta_1
+        theta[s,1] = sample(H,1)
+        #Campiono theta_2
+        theta[s,2] = sample(D,2)
+        #Campiono theta_3
+        theta[s,3] = sample(L,1)
+        
+        #Utilizzo gli angoli appena campionati per costruire la matrice di rotazione
+        R[s,:,:] = Rotation(theta[s,1], theta[s,2], theta[s,3])
 
     end
+    return theta, R
+end
+    
 
+function mcmc(I_max, burn_in, thin, d,K,p,N,Z,Y)
+
+    B,M,V,nu,Psi,Sigma_est,theta,R,X = mcmc_setup(I_max,burn_in,thin,d,K,p,N);
+
+    for i = 2:I_max
+        X[i,:,:,:] = sample_update!(X[i,:,:,:],R[i-1,:,:,:],Y)
+        B[i,:,:,:]=mcmc_B!(N,p,K,d,Sigma_est[i-1,:,:],Z,V,M,X[i-1,:,:,:]);
+        Sigma_est[i,:,:]=mcmc_Sigma!(N,K,p,nu,Psi,X[i-1,:,:,:],Z,B[i-1,:,:,:]);
+        theta[i,:,:], R[i,:,:,:] = mcmc_theta!(N,B[i-1,:,:,:],Sigma_est[i-1,:,:],theta[i-1,:,:]);
+        if i%1000 == 0
+            print("Iteration counter: ",i, '\n')
+        end
+    end
+
+    return B[burn_in:thin:end,:,:,:], Sigma_est[burn_in:thin:end,:,:], theta[burn_in:thin:end,:,:], R[burn_in:thin:end,:,:,:]
+end
+
+function plot_mcmc()
+    #Sigma
 
 end
 
@@ -291,3 +400,12 @@ mu = reshape(mu,9)
 #Build dataset
 samples, Y, R_true = makedataset(N,K,p,mu,VarCov);
 
+I_max = 30000
+burn_in = 20000
+thin = 1
+@time B, Sigma_est, theta = mcmc(I_max, burn_in, thin, d,K,p,N,Z,Y);
+
+m = mean(B,dims =1);
+m = reshape(m,3,3);
+GS(m)
+reshape(mean(Sigma_est, dims = 1),3,3)
