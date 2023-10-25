@@ -420,15 +420,15 @@ z = [1] #Matrix of covariates
 #Matrice di design
 Z = kron(I(K),z)
 #Matrice di varianza e covarianza
-k = 0.1 
-Sigma = k*I(K)
+Sigma = [1 0.5 0.3; 0.5 2 0.7; 0.3 0.7 1]
+
 VarCov = kron(I(p),Sigma)
 
 
 #Media vera
-Beta1 = [60; 1; 100]
-Beta2 = [10; 30; 180]
-Beta3 = [20; 400; 0.5] 
+Beta1 = [-7; 1; 15]
+Beta2 = [6; -9; -2]
+Beta3 = [-5; 12; 7] 
 
 mu  = [Beta1; Beta2; Beta3];
 
