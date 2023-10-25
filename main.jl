@@ -388,7 +388,7 @@ function plot_mcmc(B,Sigma,B_true,Sigma_true)
         end
     end
 
-    lab = reshape(repeat(["pred";"true"],K*p),1,2*K*p)
+    lab = reshape(repeat(["sample";"true"],K*p),1,2*K*p)
     name_B = reshape(["B"*"_"*string(i)*"_"*string(j) for i =1:3 for j = 1:3],1,K*p)
     name_S = reshape(["S"*"_"*string(i)*"_"*string(j) for i =1:3 for j = 1:3],1,K*p)
     p_B = plot(p_B..., layout = K*p, title = name_B, labels = lab)
