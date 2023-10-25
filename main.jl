@@ -443,7 +443,11 @@ samples, Y, R_true = makedataset(N,K,p,mu,VarCov);
 I_max = 30000
 burn_in = 20000
 thin = 1
-@time B, Sigma_est, theta = mcmc(I_max, burn_in, thin, d,K,p,N,Z,Y, 1, samples);
+original = 1 #Uso le rotazioni vere
+@time B, Sigma_est, theta = mcmc(I_max, burn_in, thin, d,K,p,N,Z,Y, original, samples);
+if original == 1
+    plot_mcmc(identify(B),Sigma_est,GS(reshape(mu,3,3)),Sigma)
+end
 
 m = mean(B,dims =1);
 m = reshape(m,3,3);
