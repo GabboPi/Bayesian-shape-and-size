@@ -349,15 +349,21 @@ function mcmc_theta!(N,B,Sigma,theta_last)
 end
     
 
-function mcmc(I_max, burn_in, thin, d,K,p,N,Z,Y)
+function mcmc(I_max, burn_in, thin, d,K,p,N,Z,Y, original = 0,samples=zeros(N,K,p))
 
     B,M,V,nu,Psi,Sigma_est,theta,R,X = mcmc_setup(I_max,burn_in,thin,d,K,p,N);
 
     for i = 2:I_max
-        X[i,:,:,:] = sample_update!(X[i,:,:,:],R[i-1,:,:,:],Y)
+        if original == 0
+            X[i,:,:,:] = sample_update!(X[i,:,:,:],R[i-1,:,:,:],Y)
+        elseif original == 1
+            X[i,:,:,:] = samples
+        end
         B[i,:,:,:]=mcmc_B!(N,p,K,d,Sigma_est[i-1,:,:],Z,V,M,X[i-1,:,:,:]);
         Sigma_est[i,:,:]=mcmc_Sigma!(N,K,p,nu,Psi,X[i-1,:,:,:],Z,B[i-1,:,:,:]);
-        theta[i,:,:], R[i,:,:,:] = mcmc_theta!(N,B[i-1,:,:,:],Sigma_est[i-1,:,:],theta[i-1,:,:]);
+        if original == 0
+            theta[i,:,:], R[i,:,:,:] = mcmc_theta!(N,B[i-1,:,:,:],Sigma_est[i-1,:,:],theta[i-1,:,:]);
+        end
         if i%1000 == 0
             print("Iteration counter: ",i, '\n')
         end
@@ -366,9 +372,43 @@ function mcmc(I_max, burn_in, thin, d,K,p,N,Z,Y)
     return B[burn_in:thin:end,:,:,:], Sigma_est[burn_in:thin:end,:,:], theta[burn_in:thin:end,:,:], R[burn_in:thin:end,:,:,:]
 end
 
-function plot_mcmc()
-    #Sigma
+function plot_mcmc(B,Sigma,B_true,Sigma_true)
+    I = size(B)[1]
+    K = size(B)[3]
+    p = size(B)[4]
 
+    p_B = Array{Plots.Plot{Plots.GRBackend},1}()
+    p_S = Array{Plots.Plot{Plots.GRBackend},1}()
+    for i = 1:K
+        for j = 1:p
+        p1 = hline!(plot(B[:,1,i,j], size = (1920,1080),legend = true),[B_true[i,j]])
+        p2 = hline!(plot(Sigma[:,i,j], size = (1920,1080), legend = true),[Sigma_true[i,j]])
+        push!(p_B, p1)
+        push!(p_S, p2)
+        end
+    end
+
+    lab = reshape(repeat(["pred";"true"],K*p),1,2*K*p)
+    name_B = reshape(["B"*"_"*string(i)*"_"*string(j) for i =1:3 for j = 1:3],1,K*p)
+    name_S = reshape(["S"*"_"*string(i)*"_"*string(j) for i =1:3 for j = 1:3],1,K*p)
+    p_B = plot(p_B..., layout = K*p, title = name_B, labels = lab)
+    p_S = plot(p_S..., layout = K*p, title = name_S, labels = lab)
+    savefig(p_B,"Beta.png")
+    savefig(p_S,"Sigma.png")
+
+end
+
+function identify(B)
+    dims = size(B)
+    I_max = dims[1]
+    d = dims[2]
+    K = dims[3]
+    p = dims[4]
+    B_identified = zeros(I_max,d,K,p)
+    for i = 1:I_max
+        B_identified[i,1,:,:] = GS(B[i,1,:,:])
+    end
+    return B_identified
 end
 
 N = 20; #Numero di configurazioni
@@ -403,7 +443,7 @@ samples, Y, R_true = makedataset(N,K,p,mu,VarCov);
 I_max = 30000
 burn_in = 20000
 thin = 1
-@time B, Sigma_est, theta = mcmc(I_max, burn_in, thin, d,K,p,N,Z,Y);
+@time B, Sigma_est, theta = mcmc(I_max, burn_in, thin, d,K,p,N,Z,Y, 1, samples);
 
 m = mean(B,dims =1);
 m = reshape(m,3,3);
