@@ -2,7 +2,7 @@ using LinearAlgebra
 using Distributions
 using Random
 using Plots
-
+Random.seed!(123)
 # ------ FUNZIONI --------- #
 function Helm(k)
     H = zeros(k,k);
