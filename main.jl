@@ -186,12 +186,13 @@ function makedataset(N,K,p,mu,VarCov)
 
         #Se la matrice V non è in SO(3) effettuo una permutazione
         #per assicurarmi di ottenere una rotazione
-        if(det(F.Vt)== -1)
+        if(det(F.Vt) < 0)
             P = [0 1 0; 1 0 0; 0 0 1]
-            elseif (det(F.Vt)== 1)
+            elseif (det(F.Vt) > 0)
                 P = I(p)
             elseif (det(F.Vt == 0))
                 print("Matrix is singular!")
+                break
             end
         V = F.V*P
         U = F.U*P
@@ -359,8 +360,16 @@ function mcmc(I_max, burn_in, thin, d,K,p,N,Z,Y, original = 0,samples=zeros(N,K,
         elseif original == 1
             X[i,:,:,:] = samples
         end
-        B[i,:,:,:]=mcmc_B!(N,p,K,d,Sigma_est[i-1,:,:],Z,V,M,X[i-1,:,:,:]);
+        #B[i,:,:,:]=mcmc_B!(N,p,K,d,Sigma_est[i-1,:,:],Z,V,M,X[i-1,:,:,:]);
         Sigma_est[i,:,:]=mcmc_Sigma!(N,K,p,nu,Psi,X[i-1,:,:,:],Z,B[i-1,:,:,:]);
+        Beta1 = [-7; 1; 15]
+        Beta2 = [6; -9; -2]
+        Beta3 = [-5; 12; 7] 
+
+        mu  = reshape([Beta1; Beta2; Beta3],3,3)
+        mu = GS(mu)
+        B[i,:,:,:]= mu
+        #Sigma_est[i,:,:]= [1 0.5 0.3; 0.5 2 0.7; 0.3 0.7 1]
         if original == 0
             theta[i,:,:], R[i,:,:,:] = mcmc_theta!(N,B[i-1,:,:,:],Sigma_est[i-1,:,:],theta[i-1,:,:]);
         end
@@ -393,8 +402,38 @@ function plot_mcmc(B,Sigma,B_true,Sigma_true)
     name_S = reshape(["S"*"_"*string(i)*"_"*string(j) for i =1:3 for j = 1:3],1,K*p)
     p_B = plot(p_B..., layout = K*p, title = name_B, labels = lab)
     p_S = plot(p_S..., layout = K*p, title = name_S, labels = lab)
-    savefig(p_B,"Beta.png")
+    savefig(p_B,"Beta.pdf")
     savefig(p_S,"Sigma.png")
+
+end
+
+function plot_R(R,R_true)
+
+    I = size(R)[1]
+    N = size(R)[2]
+    K = size(R)[3]
+    p = size(R)[4]
+
+    p_R = Array{Plots.Plot{Plots.GRBackend},1}()
+    for s =1:N
+        for i = 1:K
+            for j = 1:p
+            p1 = hline!(plot(R[:,s,i,j], size = (1920,1080),legend = true),[R_true[s,i,j]])
+            push!(p_R, p1)
+            end
+        end
+    end
+
+    N_p = N*p*p
+    lab = reshape(repeat(["sample";"true"],N_p),1,2*N_p)
+    name_R = reshape(["R"*"_"*string(s)*"_"*string(i)*"_"*string(j) for s =1:N for i =1:3 for j = 1:3],1,N_p)
+    for k = 0:N-1
+        p_S = p_R[9k+1:9k+9]
+        title_S = reshape(name_R[9k+1:9k+9],1,p*p)
+        labels_S = reshape(lab[18k+1: 18+18k],1,2*p*p)
+        p_S1 = plot(p_S..., layout = 9, title = title_S, labels = labels_S)
+        savefig(p_S1,"R_"*string(k+1)*".png")
+    end
 
 end
 
@@ -443,8 +482,8 @@ samples, Y, R_true = makedataset(N,K,p,mu,VarCov);
 I_max = 30000
 burn_in = 20000
 thin = 1
-original = 1 #Uso le rotazioni vere
-@time B, Sigma_est, theta = mcmc(I_max, burn_in, thin, d,K,p,N,Z,Y, original, samples);
+original = 0 #Uso le rotazioni vere
+@time B, Sigma_est, theta, R = mcmc(I_max, burn_in, thin, d,K,p,N,Z,Y, original, samples);
 if original == 1
     plot_mcmc(identify(B),Sigma_est,GS(reshape(mu,3,3)),Sigma)
 end
