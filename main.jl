@@ -402,7 +402,7 @@ function plot_mcmc(B,Sigma,B_true,Sigma_true)
     name_S = reshape(["S"*"_"*string(i)*"_"*string(j) for i =1:3 for j = 1:3],1,K*p)
     p_B = plot(p_B..., layout = K*p, title = name_B, labels = lab)
     p_S = plot(p_S..., layout = K*p, title = name_S, labels = lab)
-    savefig(p_B,"Beta.pdf")
+    savefig(p_B,"Beta.png")
     savefig(p_S,"Sigma.png")
 
 end
