@@ -452,24 +452,12 @@ function identify(B)
 end
 
 function angles(R)
-    if R[3,1] != 1 || R[3,1] != -1
-        theta = -asin(R[3,1])
+        theta2 = acos(R[3,3])
         #theta = pi - theta
-        psi = atan(R[3,2]/cos(theta), R[3,3]/cos(theta))
+        theta1 = acos(-R[3,2]/sqrt(1-R[3,3]^2))
         #psi = atan(R[3,2]/cos(theta), R[3,3]/cos(theta))
-        phi = atan(R[2,1]/cos(theta), R[1,1]/cos(theta))
-        #phi = atan(R[2,1]/cos(theta), R[1,1]/cos(theta))
-    else
-        phi = 0
-        if R[3,1] == -1
-            theta = pi/2
-            psi = phi+atan(R[1,2],R[1,3])
-        else
-            theta = -pi/2
-            psi = -phi + atan(-R[1,2], -R[1,3])
-        end
-    end
-    return [theta,psi,phi]
+        theta3 = acos(R[2,3]/sqrt(1-R[3,3]^2))
+    return [theta1,theta2,theta3]
 end
 
 N = 20; #Numero di configurazioni
