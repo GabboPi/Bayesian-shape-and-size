@@ -297,7 +297,8 @@ function mcmc_Sigma!(N,K,p,nu,Psi,X,Z,B)
         return Sigma
 end
 
-function mcmc_theta!(N,B,Sigma,theta_last)
+function mcmc_theta!(N,B,Sigma,theta_last, theta_true = nothing, theta_sim = nothing)
+    
     m = B[1,:,:]
     theta = zeros(N,3)
     R = zeros(N,p,p)
@@ -361,7 +362,7 @@ function mcmc(I_max, burn_in, thin, d,K,p,N,Z,Y, original = 0,samples=zeros(N,K,
             X[i,:,:,:] = samples
         end
         #B[i,:,:,:]=mcmc_B!(N,p,K,d,Sigma_est[i-1,:,:],Z,V,M,X[i-1,:,:,:]);
-        Sigma_est[i,:,:]=mcmc_Sigma!(N,K,p,nu,Psi,X[i-1,:,:,:],Z,B[i-1,:,:,:]);
+        #Sigma_est[i,:,:]=mcmc_Sigma!(N,K,p,nu,Psi,X[i-1,:,:,:],Z,B[i-1,:,:,:]);
         Beta1 = [-7; 1; 15]
         Beta2 = [6; -9; -2]
         Beta3 = [-5; 12; 7] 
@@ -369,7 +370,7 @@ function mcmc(I_max, burn_in, thin, d,K,p,N,Z,Y, original = 0,samples=zeros(N,K,
         mu  = reshape([Beta1; Beta2; Beta3],3,3)
         mu = GS(mu)
         B[i,:,:,:]= mu
-        #Sigma_est[i,:,:]= [1 0.5 0.3; 0.5 2 0.7; 0.3 0.7 1]
+        Sigma_est[i,:,:]= [1 0.5 0.3; 0.5 2 0.7; 0.3 0.7 1]
         if original == 0
             theta[i,:,:], R[i,:,:,:] = mcmc_theta!(N,B[i-1,:,:,:],Sigma_est[i-1,:,:],theta[i-1,:,:]);
         end
@@ -448,6 +449,27 @@ function identify(B)
         B_identified[i,1,:,:] = GS(B[i,1,:,:])
     end
     return B_identified
+end
+
+function angles(R)
+    if R[3,1] != 1 || R[3,1] != -1
+        theta = -asin(R[3,1])
+        #theta = pi - theta
+        psi = atan(R[3,2]/cos(theta), R[3,3]/cos(theta))
+        #psi = atan(R[3,2]/cos(theta), R[3,3]/cos(theta))
+        phi = atan(R[2,1]/cos(theta), R[1,1]/cos(theta))
+        #phi = atan(R[2,1]/cos(theta), R[1,1]/cos(theta))
+    else
+        phi = 0
+        if R[3,1] == -1
+            theta = pi/2
+            psi = phi+atan(R[1,2],R[1,3])
+        else
+            theta = -pi/2
+            psi = -phi + atan(-R[1,2], -R[1,3])
+        end
+    end
+    return [theta,psi,phi]
 end
 
 N = 20; #Numero di configurazioni
