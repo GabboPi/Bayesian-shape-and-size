@@ -29,7 +29,7 @@ mu = reshape(mu,9)
 
 #Build dataset
 samples, Y, R_true, theta_true = makedataset(N,K,p,mu,VarCov);
-theta_sim = [1 0 0]
+theta_sim = [0 0 1]
 
 
 I_max = 30000
