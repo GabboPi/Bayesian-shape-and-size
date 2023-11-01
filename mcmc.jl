@@ -201,10 +201,10 @@ function makedataset(N,K,p,mu,VarCov)
             end
         V = F.V*P
         U = F.U*P
-        Y[i,:,:] = U*Diagonal(F.S)
+        Y[i,:,:] = U*P'*Diagonal(F.S)*P
         R_true[i,:,:] = V'
         theta_true[i,:] = angles(R_true[i,:,:])
-    end
+        end
     return samples, Y, R_true, theta_true
 end
 
