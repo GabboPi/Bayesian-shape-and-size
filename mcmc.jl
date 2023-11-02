@@ -69,6 +69,7 @@ function sample(B,type)
         else
             gamma = 2pi-acos(cgamma)
         end
+        #gamma = atan(sgamma,cgamma)
     else
         #Se sto campionando da una simil-Von mises di dominio [o,π) il problema non si pone 
         gamma = acos(cgamma)
@@ -89,7 +90,8 @@ function sample(B,type)
 
         #Se type = 2 uso la VonMises come Kernel e faccio accept-reject, in cui il rapporto è pari a sin(y)
         if( (u <= sin(y)) && (type == 2))
-            return (y+pi)%pi
+            y = y%(pi/2)
+            return y
         #Se type = 1 uso semplciemente il campione della VonMises
         elseif type == 1
             if y <0
@@ -478,6 +480,7 @@ function plot_angles(theta,theta_true)
         labels_S = reshape(lab[6k+1: 6+6k],1,2*K)
         p_S1 = plot(p_S..., layout = 3, title = title_S, labels = labels_S)
         savefig(p_S1,"theta_"*string(k+1)*".png")
+        println("Plot"*string(k+1)*" finished!")
     end
 
 end
@@ -510,7 +513,7 @@ function angles(R)
             theta3 += 2pi
         end
         if theta2 < 0
-            theta2+= pi
+            theta2+= pi/2
         end
-    return [theta1,theta2,theta3]
+    return [theta1,theta2%(pi/2),theta3]
 end
