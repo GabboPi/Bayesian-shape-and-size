@@ -29,7 +29,7 @@ mu = reshape(mu,9)
 
 #Build dataset
 samples, Y, R_true, theta_true = makedataset(N,K,p,mu,VarCov);
-theta_sim = [1 0 0]
+theta_sim = [1 1 1]
 
 
 I_max = 30000
@@ -38,7 +38,7 @@ thin = 1
 original = 0 #Uso le rotazioni vere
 @time B, Sigma_est, theta, R = mcmc(I_max, burn_in, thin, d,K,p,N,Z,Y, original, samples,theta_true,theta_sim);
 if original == 1
-    plot_mcmc(identify(B),Sigma_est,GS(reshape(mu,3,3)),Sigma)
+    plot_mcmc(identify(B),Sigma_est,GS(reshape(mu,3,3)),Sigma,theta,theta_true)
 end
 
 m = mean(B,dims =1);

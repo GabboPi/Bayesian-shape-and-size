@@ -64,12 +64,12 @@ function sample(B,type)
     #Siccome la funzione arcocoseno ha come codominio [0, π] devo controllare, nel caso in cui stia campionando da 
     #una Von-Mises, che l'angolo non sia fupri da questo dominio. A tale scopo, controllo il segno del seno. 
     if type == 1
-        if(sgamma > 0)
+        #=if(sgamma > 0)
             gamma = acos(cgamma)
         else
             gamma = 2pi-acos(cgamma)
-        end
-        #gamma = atan(sgamma,cgamma)
+        end=#
+        gamma = atan(sgamma,cgamma)
     else
         #Se sto campionando da una simil-Von mises di dominio [o,π) il problema non si pone 
         gamma = acos(cgamma)
@@ -88,15 +88,16 @@ function sample(B,type)
         #Campiono da un'uniforme (0,1)
         u = rand(Uniform(0,1))
 
+        if type == 2
+            y = y%pi
+        end
+
+
         #Se type = 2 uso la VonMises come Kernel e faccio accept-reject, in cui il rapporto è pari a sin(y)
         if( (u <= sin(y)) && (type == 2))
-            y = y%(pi/2)
             return y
         #Se type = 1 uso semplciemente il campione della VonMises
         elseif type == 1
-            if y <0
-                y += 2pi
-            end
             return y
         i = i+1
         end
@@ -194,7 +195,8 @@ function makedataset(N,K,p,mu,VarCov)
         #Se la matrice V non è in SO(3) effettuo una permutazione
         #per assicurarmi di ottenere una rotazione
         if(det(F.Vt) < 0)
-            P = [0 1 0; 1 0 0; 0 0 1]
+            #P = [0 1 0; 1 0 0; 0 0 1]
+            P = [0 0 1; 0 1 0; 1 0 0]
             elseif (det(F.Vt) > 0)
                 P = I(p)
             elseif (det(F.Vt == 0))
@@ -204,7 +206,7 @@ function makedataset(N,K,p,mu,VarCov)
         V = F.V*P
         U = F.U*P
         Y[i,:,:] = U*P'*Diagonal(F.S)*P
-        R_true[i,:,:] = V'
+        R_true[i,:,:] = V
         theta_true[i,:] = angles(R_true[i,:,:])
         end
     return samples, Y, R_true, theta_true
@@ -401,7 +403,7 @@ function mcmc(I_max, burn_in, thin, d,K,p,N,Z,Y, original = 0,samples=zeros(N,K,
     return B[burn_in:thin:end,:,:,:], Sigma_est[burn_in:thin:end,:,:], theta[burn_in:thin:end,:,:], R[burn_in:thin:end,:,:,:]
 end
 
-function plot_mcmc(B,Sigma,B_true,Sigma_true)
+function plot_mcmc(B,Sigma,B_true,Sigma_true,theta,theta_true)
     I = size(B)[1]
     K = size(B)[3]
     p = size(B)[4]
@@ -422,8 +424,10 @@ function plot_mcmc(B,Sigma,B_true,Sigma_true)
     name_S = reshape(["S"*"_"*string(i)*"_"*string(j) for i =1:3 for j = 1:3],1,K*p)
     p_B = plot(p_B..., layout = K*p, title = name_B, labels = lab)
     p_S = plot(p_S..., layout = K*p, title = name_S, labels = lab)
-    savefig(p_B,"Beta.png")
-    savefig(p_S,"Sigma.png")
+    savefig(p_B,"/Plots/Beta.png")
+    savefig(p_S,"/Plots/Sigma.png")
+
+    plot_angles(theta,theta_true)
 
 end
 
@@ -479,7 +483,7 @@ function plot_angles(theta,theta_true)
         title_S = reshape(name_R[3k+1:3k+3],1,K)
         labels_S = reshape(lab[6k+1: 6+6k],1,2*K)
         p_S1 = plot(p_S..., layout = 3, title = title_S, labels = labels_S)
-        savefig(p_S1,"theta_"*string(k+1)*".png")
+        savefig(p_S1,"Theta/theta_"*string(k+1)*".png")
         println("Plot"*string(k+1)*" finished!")
     end
 
@@ -501,12 +505,12 @@ end
 function angles(R)
         theta2 = acos(R[3,3])
         #theta = pi - theta
-        theta1 = atan(R[3,1]/sin(theta2),-R[3,2]/sin(theta2))
-        theta3 = atan(R[1,3]/sin(theta2), R[2,3]/sin(theta2))
+        theta3 = atan(R[1,3]/sin(theta2),R[2,3]/sin(theta2))
+        theta1 = atan(R[3,1]/sin(theta2), -R[3,2]/sin(theta2))
         #theta1 = acos(-R[3,2]/sqrt(1-R[3,3]^2))
         #psi = atan(R[3,2]/cos(theta), R[3,3]/cos(theta))
         #theta3 = acos(R[2,3]/sqrt(1-R[3,3]^2))
-        if theta1 < 0
+        #=if theta1 < 0
             theta1 += 2pi
         end
         if theta3 < 0
@@ -514,6 +518,68 @@ function angles(R)
         end
         if theta2 < 0
             theta2+= pi/2
-        end
-    return [theta1,theta2%(pi/2),theta3]
+        end=#
+    return [theta1,theta2,theta3]
+end
+
+function identify_t!(theta)
+    
+    if theta[1] < -2pi
+        theta[1] %= 2pi
+    end
+    if theta[2] < -pi
+        theta[2] %= pi
+    end
+    if theta[3] < -2pi
+        theta[3] %= 2pi
+    end
+    
+    
+    if theta[1] <0
+        theta[1] += 2pi
+    end
+    if theta[2] <0
+        theta[2] += pi
+    end
+    if theta[3] <0
+        theta[3] += 2pi
+    end
+
+    if theta[1] > 2pi
+        theta[1] %= 2pi
+    end
+    if theta[2] > pi
+        theta[2] %= pi
+    end
+    if theta[3] > 2pi
+        theta[3] %= 2pi
+    end
+
+
+    return theta
+end
+
+function identify_angles(theta)
+    N = size(theta)[1]
+    for i = 1:N
+        theta[i,:] = identify_t!(theta[i,:])
+    end
+    return theta
+end
+
+function identify_samples(theta)
+    N = size(theta)[1]
+    for i = 1:N
+        theta[i,:,:] = identify_angles(theta[i,:,:])
+    end
+    return theta
+end
+
+function verify_svd(X,Y,theta)
+    R = Rotation(theta[1],theta[2],theta[3])
+    return X-Y*R'
+end
+
+function a_mises(rho,gamma,x)
+    return exp(rho*cos(x-gamma))/(2pi*besseli(0,x))*sin(gamma)
 end
