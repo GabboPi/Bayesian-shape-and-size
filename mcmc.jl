@@ -380,18 +380,19 @@ function mcmc(I_max, burn_in, thin, d,K,p,N,Z,Y, original = 0,samples=zeros(N,K,
             X[i,:,:,:] = samples
         end
         B[i,:,:,:]=mcmc_B!(N,p,K,d,Sigma_est[i-1,:,:],Z,V,M,X[i-1,:,:,:]);
-        B[i,:,:,:]= GS(reshape(B[i,:,:,:],3,3))
-        Sigma_est[i,:,:]=mcmc_Sigma!(N,K,p,nu,Psi,X[i-1,:,:,:],Z,B[i-1,:,:,:]);
-        #=Beta1 = [-7; 1; 15]
+        #B[i,:,:,:]= GS(reshape(B[i,:,:,:],3,3))
+        #Sigma_est[i,:,:]=mcmc_Sigma!(N,K,p,nu,Psi,X[i-1,:,:,:],Z,B[i-1,:,:,:]);
+        #=
+        Beta1 = [-7; 1; 15]
         Beta2 = [6; -9; -2]
         Beta3 = [-5; 12; 7] 
         
 
         mu  = reshape([Beta1; Beta2; Beta3],3,3)
-        mu = GS(mu)
+        #mu = GS(mu)
         B[i,:,:,:]= mu
         =#
-        #Sigma_est[i,:,:]= [1 0.5 0.3; 0.5 2 0.7; 0.3 0.7 1]
+        Sigma_est[i,:,:]= [1 0.5 0.3; 0.5 2 0.7; 0.3 0.7 1]
         
         if original == 0 && isnothing(theta_true)
             theta[i,:,:], R[i,:,:,:] = mcmc_theta!(N,B[i-1,:,:,:],Sigma_est[i-1,:,:],theta[i-1,:,:]);
@@ -586,4 +587,42 @@ end
 
 function a_mises(rho,gamma,x)
     return exp(rho*cos(x-gamma))/(2pi*besseli(0,x))*sin(gamma)
+end
+
+function get_V(B)
+    #Funzione che restituisce una versioen identificata ddella mtrice di rotazione considerata
+    #Si tratta di una semplice ortogonalizzazione di Gram-Schmidt
+    p = size(B)[2]
+    A = B'
+    V = zeros(p,p);
+    V[:,1] = A[:,1]/norm(A[:,1])
+
+    V[:,2] = A[:,2] - (A[:,2]'*V[:,1])*V[:,1]
+    V[:,2] = V[:,2]/norm(V[:,2])
+
+    V[:,3] = A[:,3] - ((A[:,3]'*V[:,1])*V[:,1]) - ((A[:,3]'*V[:,2])*V[:,2])
+    V[:,3] = V[:,3]/norm(V[:,3])
+
+    #Scelgo l'ultima colonna in modo da avere una amtric ein SO(3)
+    if (det(V)!=1)
+        V[:,3] = -V[:,3]
+    end
+    return V
+end
+
+function identify_R_angles(B,R)
+    R_new = copy(R)
+    dim = size(R)
+    N = dim[1]
+    S = dim[2]
+    K = dim[3]
+    p = dim[4]
+    thetas = zeros((S,3))
+    for i = 1:N
+        for s = 1:S
+            R_new[i,s,:,:] = R[i,s,:,:]*get_V(reshape(B[i,1,:,:],3,3))
+            thetas[s,:] = identify_t!(angles(R_new[i,s,:,:]))
+        end
+    end
+    return thetas
 end
