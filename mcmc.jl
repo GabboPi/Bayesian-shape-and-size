@@ -379,16 +379,20 @@ function mcmc(I_max, burn_in, thin, d,K,p,N,Z,Y, original = 0,samples=zeros(N,K,
         elseif original == 1
             X[i,:,:,:] = samples
         end
-        #B[i,:,:,:]=mcmc_B!(N,p,K,d,Sigma_est[i-1,:,:],Z,V,M,X[i-1,:,:,:]);
-        #Sigma_est[i,:,:]=mcmc_Sigma!(N,K,p,nu,Psi,X[i-1,:,:,:],Z,B[i-1,:,:,:]);
-        Beta1 = [-7; 1; 15]
+        B[i,:,:,:]=mcmc_B!(N,p,K,d,Sigma_est[i-1,:,:],Z,V,M,X[i-1,:,:,:]);
+        B[i,:,:,:]= GS(reshape(B[i,:,:,:],3,3))
+        Sigma_est[i,:,:]=mcmc_Sigma!(N,K,p,nu,Psi,X[i-1,:,:,:],Z,B[i-1,:,:,:]);
+        #=Beta1 = [-7; 1; 15]
         Beta2 = [6; -9; -2]
         Beta3 = [-5; 12; 7] 
+        
 
         mu  = reshape([Beta1; Beta2; Beta3],3,3)
         mu = GS(mu)
         B[i,:,:,:]= mu
-        Sigma_est[i,:,:]= [1 0.5 0.3; 0.5 2 0.7; 0.3 0.7 1]
+        =#
+        #Sigma_est[i,:,:]= [1 0.5 0.3; 0.5 2 0.7; 0.3 0.7 1]
+        
         if original == 0 && isnothing(theta_true)
             theta[i,:,:], R[i,:,:,:] = mcmc_theta!(N,B[i-1,:,:,:],Sigma_est[i-1,:,:],theta[i-1,:,:]);
         elseif !isnothing(theta_true)
@@ -424,8 +428,8 @@ function plot_mcmc(B,Sigma,B_true,Sigma_true,theta,theta_true)
     name_S = reshape(["S"*"_"*string(i)*"_"*string(j) for i =1:3 for j = 1:3],1,K*p)
     p_B = plot(p_B..., layout = K*p, title = name_B, labels = lab)
     p_S = plot(p_S..., layout = K*p, title = name_S, labels = lab)
-    savefig(p_B,"/Plots/Beta.png")
-    savefig(p_S,"/Plots/Sigma.png")
+    savefig(p_B,"Plots/Beta.png")
+    savefig(p_S,"Plots/Sigma.png")
 
     plot_angles(theta,theta_true)
 
