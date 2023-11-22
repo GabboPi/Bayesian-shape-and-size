@@ -29,13 +29,13 @@ mu = reshape(mu,9)
 
 #Build dataset
 samples, Y, R_true, theta_true = makedataset(N,K,p,mu,VarCov);
-theta_sim = [1 1 1]
-beta_sim = 0
+theta_sim = [1 0 1]
+beta_sim = 1
 Sigma_sim = 0
 
 
-I_max = 30000
-burn_in = 20000
+I_max = 50000
+burn_in = 30000
 thin = 1
 original = 0 #Uso le rotazioni vere
 @time B, Sigma_est, theta, R = mcmc(I_max, burn_in, thin, d,K,p,N,Z,Y, original, samples,theta_true,theta_sim,beta_sim,Sigma_sim);
