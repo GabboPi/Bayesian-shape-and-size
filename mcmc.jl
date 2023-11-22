@@ -195,8 +195,7 @@ function makedataset(N,K,p,mu,VarCov)
         #Se la matrice V non è in SO(3) effettuo una permutazione
         #per assicurarmi di ottenere una rotazione
         if(det(F.Vt) < 0)
-            #P = [0 1 0; 1 0 0; 0 0 1]
-            P = [0 0 1; 0 1 0; 1 0 0]
+            P = [-1 0 0; 0 1 0; 0 0 1]
             elseif (det(F.Vt) > 0)
                 P = I(p)
             elseif (det(F.Vt == 0))
@@ -205,7 +204,7 @@ function makedataset(N,K,p,mu,VarCov)
             end
         V = F.V*P
         U = F.U*P
-        Y[i,:,:] = U*P'*Diagonal(F.S)*P
+        Y[i,:,:] = U*Diagonal(F.S)
         R_true[i,:,:] = V
         theta_true[i,:] = angles(R_true[i,:,:])
         end
@@ -431,7 +430,7 @@ function mcmc(I_max, burn_in, thin, d,K,p,N,Z,Y, original = 0,samples=zeros(N,K,
     return B[burn_in:thin:end,:,:,:], Sigma_est[burn_in:thin:end,:,:], theta[burn_in:thin:end,:,:], R[burn_in:thin:end,:,:,:]
 end
 
-function plot_mcmc(B,Sigma,B_true,Sigma_true,theta,theta_true)
+function plot_mcmc(B,Sigma,B_true,Sigma_true,R,R_true)
     if isdir("Plots/") == false
         mkdir("Plots/")
     end
@@ -465,10 +464,14 @@ function plot_mcmc(B,Sigma,B_true,Sigma_true,theta,theta_true)
     print("Done! \n")
 
     print("Plotting angles...")
+    theta = identify_R_angles(B,R)
+    theta_true = identify_R_angles_true(B_true,R_true)
     plot_angles(theta,theta_true)
     print("Done! \n")
     print("Plotting R...")
-    plot_R(identify_R(B,R),R_true)
+    R1 = identify_R(B,R)
+    R2 = identify_R_true(B_true,R_true)
+    plot_R(R1,R2)
     print("Done!")
 
 end
@@ -505,6 +508,7 @@ function plot_R(R,R_true)
         labels_S = reshape(lab[18k+1: 18+18k],1,2*p*p)
         p_S1 = plot(p_S..., layout = 9, title = title_S, labels = labels_S)
         savefig(p_S1,"Plots/R/R_"*string(k+1)*".png")
+        print("Plot "*string(k+1)*" finished! \n")
     end
 
 end
@@ -691,4 +695,34 @@ function identify_R(B,R)
         end
     end
     return R_new
+end
+
+function identify_R_true(B_true,R_true)
+    dim = size(R_true)
+    S = dim[1]
+    K = dim[2]
+    p = dim[3]
+
+    R_true_new = copy(R_true)
+    G = get_V(B_true)
+    for s = 1:S
+        R_true_new[s,:,:] = R_true[s,:,:]*G
+    end
+    return R_true_new
+end
+
+function identify_R_angles_true(B_true,R_true)
+    dim = size(R_true)
+    S = dim[1]
+    K = dim[2]
+    p = dim[3]
+
+    R_true_new = copy(R_true)
+    thetas = zeros((S,3))
+    G = get_V(B_true)
+    for s = 1:S
+        R_true_new[s,:,:] = R_true[s,:,:]*G
+        thetas[s,:] = identify_t!(angles(R_true_new[s,:,:]))
+    end
+    return thetas
 end
