@@ -355,6 +355,25 @@ function mcmc_theta!(N,B,Sigma,theta_last, theta_true::Union{Array,Nothing}=noth
             #Utilizzo gli angoli appena campionati per costruire la matrice di rotazione
             R[s,:,:] = Rotation(theta[s,1], theta[s,2], theta[s,3])
         else
+            #=if theta_sim[1] == 0
+                theta[s,1] = theta_true[s,1]
+            else
+                theta[s,1] = sample(H,1)
+            end
+            
+            if theta_sim[2] == 0
+                theta[s,2] = theta_true[s,2]
+            else
+                theta[s,2] = sample(D,2)
+            end
+
+            if theta_sim[3] == 0
+                theta[s,3] = theta_true[s,3]
+            else
+                theta[s,3] = sample(L,3)
+            end
+            =#
+
             theta[s,1] = theta_true[s,1]*(1-theta_sim[1]) + sample(H,1)*theta_sim[1]
             #Campiono theta_2
             theta[s,2] = theta_true[s,2]*(1-theta_sim[2]) + sample(D,2)*theta_sim[2] 
@@ -369,7 +388,7 @@ function mcmc_theta!(N,B,Sigma,theta_last, theta_true::Union{Array,Nothing}=noth
     return theta, R
 end
     
-function mcmc(I_max, burn_in, thin, d,K,p,N,Z,Y, original = 0,samples=zeros(N,K,p), theta_true::Union{Array,Nothing} = nothing, theta_sim::Union{Array,Nothing} = nothing)
+function mcmc(I_max, burn_in, thin, d,K,p,N,Z,Y, original = 0,samples=zeros(N,K,p), theta_true::Union{Array,Nothing} = nothing, theta_sim::Union{Array,Nothing} = nothing, beta_sim::Int = 0, Sigma_sim::Int = 0 )
 
     B,M,V,nu,Psi,Sigma_est,theta,R,X = mcmc_setup(I_max,burn_in,thin,d,K,p,N);
 
@@ -378,21 +397,25 @@ function mcmc(I_max, burn_in, thin, d,K,p,N,Z,Y, original = 0,samples=zeros(N,K,
             X[i,:,:,:] = sample_update!(X[i,:,:,:],R[i-1,:,:,:],Y)
         elseif original == 1
             X[i,:,:,:] = samples
-        end
-        B[i,:,:,:]=mcmc_B!(N,p,K,d,Sigma_est[i-1,:,:],Z,V,M,X[i-1,:,:,:]);
-        #B[i,:,:,:]= GS(reshape(B[i,:,:,:],3,3))
-        #Sigma_est[i,:,:]=mcmc_Sigma!(N,K,p,nu,Psi,X[i-1,:,:,:],Z,B[i-1,:,:,:]);
-        #=
-        Beta1 = [-7; 1; 15]
-        Beta2 = [6; -9; -2]
-        Beta3 = [-5; 12; 7] 
         
+        end
 
-        mu  = reshape([Beta1; Beta2; Beta3],3,3)
-        #mu = GS(mu)
-        B[i,:,:,:]= mu
-        =#
-        Sigma_est[i,:,:]= [1 0.5 0.3; 0.5 2 0.7; 0.3 0.7 1]
+        if beta_sim == 1
+            B[i,:,:,:]=mcmc_B!(N,p,K,d,Sigma_est[i-1,:,:],Z,V,M,X[i-1,:,:,:]);
+        else
+            Beta1 = [-7; 1; 15]
+            Beta2 = [6; -9; -2]
+            Beta3 = [-5; 12; 7] 
+            mu  = reshape([Beta1; Beta2; Beta3],3,3)
+            #mu = GS(mu)
+            B[i,:,:,:]= mu
+        end
+
+        if Sigma_sim == 1
+            Sigma_est[i,:,:]=mcmc_Sigma!(N,K,p,nu,Psi,X[i-1,:,:,:],Z,B[i-1,:,:,:]);
+        else
+            Sigma_est[i,:,:]= [1 0.5 0.3; 0.5 2 0.7; 0.3 0.7 1]
+        end
         
         if original == 0 && isnothing(theta_true)
             theta[i,:,:], R[i,:,:,:] = mcmc_theta!(N,B[i-1,:,:,:],Sigma_est[i-1,:,:],theta[i-1,:,:]);
@@ -409,16 +432,24 @@ function mcmc(I_max, burn_in, thin, d,K,p,N,Z,Y, original = 0,samples=zeros(N,K,
 end
 
 function plot_mcmc(B,Sigma,B_true,Sigma_true,theta,theta_true)
+    if isdir("Plots/") == false
+        mkdir("Plots/")
+    end
     I = size(B)[1]
     K = size(B)[3]
     p = size(B)[4]
 
+    print("Plotting B and Sigma...")
     p_B = Array{Plots.Plot{Plots.GRBackend},1}()
     p_S = Array{Plots.Plot{Plots.GRBackend},1}()
     for i = 1:K
         for j = 1:p
-        p1 = hline!(plot(B[:,1,i,j], size = (1920,1080),legend = true),[B_true[i,j]])
-        p2 = hline!(plot(Sigma[:,i,j], size = (1920,1080), legend = true),[Sigma_true[i,j]])
+        m = minimum(B[:,1,i,j])-1
+        M = maximum(B[:,1,i,j])+1
+        p1 = hline!(plot(B[:,1,i,j], size = (1920,1080),legend = true,xlims=(0,I), ylims = (m,M)),[B_true[i,j]])
+        m = minimum(Sigma[:,i,j])-1
+        M = maximum(Sigma[:,i,j])+1
+        p2 = hline!(plot(Sigma[:,i,j], size = (1920,1080), legend = true,xlims = (0,I)),[Sigma_true[i,j]])
         push!(p_B, p1)
         push!(p_S, p2)
         end
@@ -431,8 +462,14 @@ function plot_mcmc(B,Sigma,B_true,Sigma_true,theta,theta_true)
     p_S = plot(p_S..., layout = K*p, title = name_S, labels = lab)
     savefig(p_B,"Plots/Beta.png")
     savefig(p_S,"Plots/Sigma.png")
+    print("Done! \n")
 
+    print("Plotting angles...")
     plot_angles(theta,theta_true)
+    print("Done! \n")
+    print("Plotting R...")
+    plot_R(identify_R(B,R),R_true)
+    print("Done!")
 
 end
 
@@ -443,11 +480,17 @@ function plot_R(R,R_true)
     K = size(R)[3]
     p = size(R)[4]
 
+    if isdir("Plots/R") == false
+        mkdir("Plots/R")
+    end
+
     p_R = Array{Plots.Plot{Plots.GRBackend},1}()
     for s =1:N
         for i = 1:K
             for j = 1:p
-            p1 = hline!(plot(R[:,s,i,j], size = (1920,1080),legend = true),[R_true[s,i,j]])
+            m = minimum(R[:,s,i,j])-1
+            M = maximum(R[:,s,i,j])+1
+            p1 = hline!(plot(R[:,s,i,j], size = (1920,1080),legend = true, xlims = (0,I), ylims = (m,M)),[R_true[s,i,j]])
             push!(p_R, p1)
             end
         end
@@ -461,7 +504,7 @@ function plot_R(R,R_true)
         title_S = reshape(name_R[9k+1:9k+9],1,p*p)
         labels_S = reshape(lab[18k+1: 18+18k],1,2*p*p)
         p_S1 = plot(p_S..., layout = 9, title = title_S, labels = labels_S)
-        savefig(p_S1,"R_"*string(k+1)*".png")
+        savefig(p_S1,"Plots/R/R_"*string(k+1)*".png")
     end
 
 end
@@ -471,11 +514,17 @@ function plot_angles(theta,theta_true)
     I = size(theta)[1]
     N = size(theta)[2]
     K = 3
-
+    if isdir("Plots/Theta") == false
+        mkdir("Plots/Theta")
+    end
     p_R = Array{Plots.Plot{Plots.GRBackend},1}()
     for s =1:N
         for i = 1:K
-            p1 = hline!(plot(theta[:,s,i], size = (1920,1080),legend = true),[theta_true[s,i]])
+            if i != 2
+                p1 = hline!(plot(theta[:,s,i], size = (1920,1080),legend = true,ylims=(0,2pi),xlims=(0,I)),[theta_true[s,i]])
+            else
+                p1 = hline!(plot(theta[:,s,i], size = (1920,1080),legend = true,ylims=(0,pi), xlims = (0,I)),[theta_true[s,i]])
+            end
             push!(p_R, p1)
         end
     end
@@ -488,7 +537,7 @@ function plot_angles(theta,theta_true)
         title_S = reshape(name_R[3k+1:3k+3],1,K)
         labels_S = reshape(lab[6k+1: 6+6k],1,2*K)
         p_S1 = plot(p_S..., layout = 3, title = title_S, labels = labels_S)
-        savefig(p_S1,"Theta/theta_"*string(k+1)*".png")
+        savefig(p_S1,"Plots/Theta/theta_"*string(k+1)*".png")
         println("Plot"*string(k+1)*" finished!")
     end
 
@@ -617,12 +666,29 @@ function identify_R_angles(B,R)
     S = dim[2]
     K = dim[3]
     p = dim[4]
-    thetas = zeros((S,3))
+    thetas = zeros((N,S,3))
     for i = 1:N
         for s = 1:S
             R_new[i,s,:,:] = R[i,s,:,:]*get_V(reshape(B[i,1,:,:],3,3))
-            thetas[s,:] = identify_t!(angles(R_new[i,s,:,:]))
+            #R_new[i,s,:,:] = R[i,s,:,:]*get_V(reshape(B[i,1,:,:],3,3))
+            thetas[i,s,:] = identify_t!(angles(R_new[i,s,:,:]))
         end
     end
     return thetas
+end
+
+function identify_R(B,R)
+    R_new = copy(R)
+    dim = size(R)
+    N = dim[1]
+    S = dim[2]
+    K = dim[3]
+    p = dim[4]
+    thetas = zeros((N,S,3))
+    for i = 1:N
+        for s = 1:S
+            R_new[i,s,:,:] = R[i,s,:,:]*get_V(reshape(B[i,1,:,:],3,3))
+        end
+    end
+    return R_new
 end
