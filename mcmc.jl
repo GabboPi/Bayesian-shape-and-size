@@ -430,9 +430,9 @@ function mcmc(I_max, burn_in, thin, d,K,p,N,Z,Y, original = 0,samples=zeros(N,K,
     return B[burn_in:thin:end,:,:,:], Sigma_est[burn_in:thin:end,:,:], theta[burn_in:thin:end,:,:], R[burn_in:thin:end,:,:,:]
 end
 
-function plot_mcmc(B,Sigma,B_true,Sigma_true,R,R_true)
-    if isdir("Plots/") == false
-        mkdir("Plots/")
+function plot_mcmc(B,Sigma,B_true,Sigma_true,R,R_true,dir::String="Plots/")
+    if isdir(dir) == false
+        mkdir(dir)
     end
     I = size(B)[1]
     K = size(B)[3]
@@ -459,32 +459,32 @@ function plot_mcmc(B,Sigma,B_true,Sigma_true,R,R_true)
     name_S = reshape(["S"*"_"*string(i)*"_"*string(j) for i =1:3 for j = 1:3],1,K*p)
     p_B = plot(p_B..., layout = K*p, title = name_B, labels = lab)
     p_S = plot(p_S..., layout = K*p, title = name_S, labels = lab)
-    savefig(p_B,"Plots/Beta.png")
-    savefig(p_S,"Plots/Sigma.png")
+    savefig(p_B,dir*"Beta.png")
+    savefig(p_S,dir*"Sigma.png")
     print("Done! \n")
 
     print("Plotting angles...")
     theta = identify_R_angles(B,R)
     theta_true = identify_R_angles_true(B_true,R_true)
-    plot_angles(theta,theta_true)
+    plot_angles(theta,theta_true,dir)
     print("Done! \n")
     print("Plotting R...")
     R1 = identify_R(B,R)
     R2 = identify_R_true(B_true,R_true)
-    plot_R(R1,R2)
+    plot_R(R1,R2,dir)
     print("Done!")
 
 end
 
-function plot_R(R,R_true)
+function plot_R(R,R_true,dir::String="Plots/")
 
     I = size(R)[1]
     N = size(R)[2]
     K = size(R)[3]
     p = size(R)[4]
 
-    if isdir("Plots/R") == false
-        mkdir("Plots/R")
+    if isdir(dir*"R/") == false
+        mkdir(dir*"R/")
     end
 
     p_R = Array{Plots.Plot{Plots.GRBackend},1}()
@@ -507,19 +507,19 @@ function plot_R(R,R_true)
         title_S = reshape(name_R[9k+1:9k+9],1,p*p)
         labels_S = reshape(lab[18k+1: 18+18k],1,2*p*p)
         p_S1 = plot(p_S..., layout = 9, title = title_S, labels = labels_S)
-        savefig(p_S1,"Plots/R/R_"*string(k+1)*".png")
+        savefig(p_S1,dir*"R/R_"*string(k+1)*".png")
         print("Plot "*string(k+1)*" finished! \n")
     end
 
 end
 
-function plot_angles(theta,theta_true)
+function plot_angles(theta,theta_true,dir::String = "Plots/")
 
     I = size(theta)[1]
     N = size(theta)[2]
     K = 3
-    if isdir("Plots/Theta") == false
-        mkdir("Plots/Theta")
+    if isdir(dir*"Theta/") == false
+        mkdir(dir*"Theta/")
     end
     p_R = Array{Plots.Plot{Plots.GRBackend},1}()
     for s =1:N
@@ -541,7 +541,7 @@ function plot_angles(theta,theta_true)
         title_S = reshape(name_R[3k+1:3k+3],1,K)
         labels_S = reshape(lab[6k+1: 6+6k],1,2*K)
         p_S1 = plot(p_S..., layout = 3, title = title_S, labels = labels_S)
-        savefig(p_S1,"Plots/Theta/theta_"*string(k+1)*".png")
+        savefig(p_S1,dir*"Theta/theta_"*string(k+1)*".png")
         println("Plot"*string(k+1)*" finished!")
     end
 
@@ -725,4 +725,61 @@ function identify_R_angles_true(B_true,R_true)
         thetas[s,:] = identify_t!(angles(R_true_new[s,:,:]))
     end
     return thetas
+end
+
+function grid_mcmc(T1,T2,T3,B_v,S_v,I_max, burn_in, thin, d,K,p,N,Z,Y, original, samples,theta_true, R_true,mu)
+    if isdir("Plots/") == false
+        mkdir("Plots/")
+    end
+    for t1 in T1
+        if t1 == 1
+            dir1 = "Theta1_"
+        else 
+            dir1 = ""
+        end
+        for t2 in T2
+            if t2 == 1
+                dir2 = "Theta2_"
+            else 
+                dir2 = ""
+            end
+            for t3 in T3
+                if t3 == 1
+                    dir3 = "Theta3_"
+                else 
+                    dir3 = ""
+                end
+                for b in B_v
+                    if b == 1
+                        dirb = "Beta_"
+                    else 
+                        dirb = ""
+                    end
+                    for s in S_v
+                        if s == 1
+                            dirs = "Sigma_"
+                        else 
+                            dirs = ""
+                        end
+                        dir_m = dirb*dirs*dir1*dir2*dir3
+                        if last(dir_m) == '_'
+                            dir_m = chop(dir_m)
+                        end
+                        if dir_m == ""
+                            dir = "Plots/Original/"
+                        else
+                            dir = "Plots/"*dir_m*"/"
+                        end
+                        if isdir(dir) == false
+                            mkdir(dir)
+                        end
+                        B, Sigma_est, theta, R = mcmc(I_max, burn_in, thin, d,K,p,N,Z,Y, original, samples,theta_true,[t1, t2, t3],b,s);
+                        plot_mcmc(identify(B),Sigma_est,GS(reshape(mu,3,3)),Sigma,R,R_true,dir)
+                    end
+                end
+            end
+        end
+    end
+
+    
 end
