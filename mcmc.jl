@@ -762,12 +762,12 @@ function grid_mcmc(T1,T2,T3,B_v,S_v,I_max, burn_in, thin, d,K,p,N,Z,Y, original,
                             dirs = ""
                         end
                         dir_m = dirb*dirs*dir1*dir2*dir3
-                        if last(dir_m) == '_'
-                            dir_m = chop(dir_m)
-                        end
                         if dir_m == ""
                             dir = "Plots/Original/"
                         else
+                            if last(dir_m) == '_'
+                                dir_m = chop(dir_m)
+                            end
                             dir = "Plots/"*dir_m*"/"
                         end
                         if isdir(dir) == false
