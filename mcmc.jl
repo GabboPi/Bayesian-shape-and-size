@@ -38,7 +38,7 @@ function Rotation(theta1,theta2,theta3)
     return R3*R2*R1
 end
 
-function sample(B,type)
+function sample(B::Array{Float64},type::Int)
     #Funzione che campiona dalla full conditional degli angoli di Eulero
     #Le full conditional sono ricavate a partire dalla amtrix Fisher definita su SO(3), dove la densità è proporzionale a exp(R'B)
     #Se type = 1 allora campiona da una VonMises con densità proporzionale a exp( rho * cos(theta-gamma) )
@@ -70,6 +70,7 @@ function sample(B,type)
             gamma = 2pi-acos(cgamma)
         end=#
         gamma = atan(sgamma,cgamma)
+        #gamma = acos(cgamma)
     else
         #Se sto campionando da una simil-Von mises di dominio [o,π) il problema non si pone 
         gamma = acos(cgamma)
@@ -105,7 +106,7 @@ function sample(B,type)
     end
 end
 
-function metropolis(R,Y,mu,I_Sigma,last)
+function metropolis(R::Array{Float64},Y::Array{Float64},mu::Array{Float64},I_Sigma::Array{Float64},last::Array{Float64})
     #Prototipo di step Metropolis: da rivedere perchè molto lento.
     X = Y*R
     flag = 0
@@ -135,7 +136,7 @@ function metropolis(R,Y,mu,I_Sigma,last)
     return [R1, T]
 end
 
-function GS(B)
+function GS(B::Array{Float64})
     #Funzione che restituisce una versioen identificata ddella mtrice di rotazione considerata
     #Si tratta di una semplice ortogonalizzazione di Gram-Schmidt
     p = size(B)[2]
@@ -157,7 +158,7 @@ function GS(B)
     return B*V
 end
 
-function Riemann_distance(mu, mu_approx)
+function Riemann_distance(mu::Array{Float64}, mu_approx::Array{Float64})
     #Funzione che calcola la distanza riemanniana tar due confgurazioni di forma
     Z1 = mu/norm(mu)
     Z2 = mu_approx/norm(mu_approx)
@@ -169,7 +170,7 @@ function Riemann_distance(mu, mu_approx)
     return acos(sum(F.S))
 end
 
-function makedataset(N,K,p,mu,VarCov)
+function makedataset(N::Int64,K::Int64,p::Int64,mu::Vector{Float64},VarCov::Array{Float64})
     #Tensore dei campioni
     samples = zeros(N,K,p);
     #Tensore delle configurazioni forma-scala
@@ -205,30 +206,30 @@ function makedataset(N,K,p,mu,VarCov)
         V = F.V*P
         U = F.U*P
         Y[i,:,:] = U*Diagonal(F.S)
-        R_true[i,:,:] = V
+        R_true[i,:,:] = V'
         theta_true[i,:] = angles(R_true[i,:,:])
         end
     return samples, Y, R_true, theta_true
 end
 
-function mcmc_setup(I_max,burn_in,thin,d,K,p,N)
+function mcmc_setup(I_max::Int64,burn_in::Int64,thin::Int64,d::Int64,K::Int64,p::Int64,N::Int64)
     #----Inizializzazione die parametri-----#
     # - Coefficienti regressivi - #
     #Tensore per le matrici dei coefficienti regressivi
     B = zeros(I_max,d,K,p);
     #Valore iniziale: scelgo la amtrice identità per evitare errori legati alla non hermitianità
-    B[1,1,:,:] = I(p)
+    B[1,1,:,:] = Matrix(1.0*I(p))
     # Parametri necessari per la full conditional
     M = zeros(p,K*d);
     V = zeros(p,K*d,K*d);
     for l = 1:p
-        V[l,:,:] = 10^4*I(K*d);
+        V[l,:,:] = Matrix(10.0^4*I(K*d));
     end
 
     # - Matrice di varianza e covarianza - #
     #Parametri necessari pe rla full conditional
     nu = K+1;
-    Psi = I(K);
+    Psi = Matrix(1.0*I(K));
     #Tensore per la matrice di avrianza e covarianza
     Sigma_est = zeros(I_max,K,K)
     #Valore iniziale -> matrice identità
@@ -240,7 +241,7 @@ function mcmc_setup(I_max,burn_in,thin,d,K,p,N)
     R = zeros(I_max,N,p,p);
     #Matrice per gli angoli
     theta = zeros(I_max,N,3)
-    #Inizializzo gli angoli a zero
+    #Inizializzo gli angoli a zero 
     theta[1,:,1] = zeros(N);
     theta[1,:,2] = zeros(N);
     theta[1,:,3] = zeros(N);
@@ -255,15 +256,15 @@ function mcmc_setup(I_max,burn_in,thin,d,K,p,N)
     return B,M,V,nu,Psi,Sigma_est,theta,R,X
 end
 
-function sample_update!(X,R,Y)
+function sample_update!(X::Array{Float64},R::Array{Float64},Y::Array{Float64})
     for s = 1:N
-        X[s,:,:] = Y[s,:,:]*R[s,:,:]'
+        X[s,:,:] = Y[s,:,:]*R[s,:,:]
     end
     return X
 end
 
-function mcmc_B!(N,p,K,d,Sigma,Z,V,M,X)
-    B = zeros(d,p,p)
+function mcmc_B!(N::Int64,p::Int64,K::Int64,d::Int64,Sigma::Array{Float64},Z::Array{Float64},V::Array{Float64},M::Array{Float64},X::Array{Float64})
+    B = zeros(d,K,p)
     M_s = zeros(p,K*d,1);
     V_s = zeros(p,K*d,K*d);
     I_Sigma = inv(Sigma)
@@ -287,7 +288,7 @@ function mcmc_B!(N,p,K,d,Sigma,Z,V,M,X)
     return B
 end
 
-function mcmc_Sigma!(N,K,p,nu,Psi,X,Z,B)
+function mcmc_Sigma!(N::Int64,K::Int64,p::Int64,nu::Int64,Psi::Array{Float64},X::Array{Float64},Z::Array{Float64},B::Array{Float64})
         #Ricavo i parametri necessari per campionare dalla full conditional di Sigma
         nu_s = nu+N*p;
 
@@ -300,13 +301,13 @@ function mcmc_Sigma!(N,K,p,nu,Psi,X,Z,B)
         Psi_s = Psi_s + Psi
     
         #Campiono dalla full di Sigma
-        Sigma = rand(
+         Sigma = rand(
             InverseWishart(nu_s, Psi_s)
         )
         return Sigma
 end
 
-function mcmc_theta!(N,B,Sigma,theta_last, theta_true::Union{Array,Nothing}=nothing, theta_sim::Union{Array,Nothing}=nothing)
+function mcmc_theta!(N::Int64,B::Array{Float64},Sigma::Array{Float64},theta_last::Array{Float64}, theta_true::Union{Array{Float64},Nothing}=nothing, theta_sim::Union{Array{Int64},Nothing}=nothing)
     
     m = B[1,:,:]
     theta = zeros(N,3)
@@ -354,7 +355,7 @@ function mcmc_theta!(N,B,Sigma,theta_last, theta_true::Union{Array,Nothing}=noth
             #Utilizzo gli angoli appena campionati per costruire la matrice di rotazione
             R[s,:,:] = Rotation(theta[s,1], theta[s,2], theta[s,3])
         else
-            #=if theta_sim[1] == 0
+            if theta_sim[1] == 0
                 theta[s,1] = theta_true[s,1]
             else
                 theta[s,1] = sample(H,1)
@@ -369,16 +370,17 @@ function mcmc_theta!(N,B,Sigma,theta_last, theta_true::Union{Array,Nothing}=noth
             if theta_sim[3] == 0
                 theta[s,3] = theta_true[s,3]
             else
-                theta[s,3] = sample(L,3)
+                theta[s,3] = sample(L,1)
             end
-            =#
+            
 
-            theta[s,1] = theta_true[s,1]*(1-theta_sim[1]) + sample(H,1)*theta_sim[1]
+            #=theta[s,1] = theta_true[s,1]*(1-theta_sim[1]) + sample(H,1)*theta_sim[1]
             #Campiono theta_2
             theta[s,2] = theta_true[s,2]*(1-theta_sim[2]) + sample(D,2)*theta_sim[2] 
             #Campiono theta_3
             theta[s,3] = theta_true[s,3]*(1-theta_sim[3]) + sample(L,1)*theta_sim[3]
             #Utilizzo gli angoli appena campionati per costruire la matrice di rotazione
+            =#
             R[s,:,:] = Rotation(theta[s,1], theta[s,2], theta[s,3])
         end
         
@@ -387,13 +389,14 @@ function mcmc_theta!(N,B,Sigma,theta_last, theta_true::Union{Array,Nothing}=noth
     return theta, R
 end
     
-function mcmc(I_max, burn_in, thin, d,K,p,N,Z,Y, original = 0,samples=zeros(N,K,p), theta_true::Union{Array,Nothing} = nothing, theta_sim::Union{Array,Nothing} = nothing, beta_sim::Int = 0, Sigma_sim::Int = 0 )
+function mcmc(I_max::Int64, burn_in::Int64, thin::Int64, d::Int64,K::Int64,p::Int64,N::Int64,Z::Array{Float64},Y::Array{Float64}, original = 0,samples::Array{Float64}=zeros(N,K,p), theta_true::Union{Array,Nothing} = nothing, theta_sim::Union{Array,Nothing} = nothing, beta_sim::Int64 = 0, Sigma_sim::Int64 = 0 )
 
     B,M,V,nu,Psi,Sigma_est,theta,R,X = mcmc_setup(I_max,burn_in,thin,d,K,p,N);
 
     for i = 2:I_max
         if original == 0
             X[i,:,:,:] = sample_update!(X[i,:,:,:],R[i-1,:,:,:],Y)
+            #X[i,:,:,:] = samples
         elseif original == 1
             X[i,:,:,:] = samples
         
@@ -430,7 +433,7 @@ function mcmc(I_max, burn_in, thin, d,K,p,N,Z,Y, original = 0,samples=zeros(N,K,
     return B[burn_in:thin:end,:,:,:], Sigma_est[burn_in:thin:end,:,:], theta[burn_in:thin:end,:,:], R[burn_in:thin:end,:,:,:]
 end
 
-function plot_mcmc(B,Sigma,B_true,Sigma_true,R,R_true,dir::String="Plots/")
+function plot_mcmc(B::Array{Float64},Sigma::Array{Float64},B_true::Array{Float64},Sigma_true::Array{Float64},R::Array{Float64},R_true::Array{Float64},dir::String="Plots/")
     if isdir(dir) == false
         mkdir(dir)
     end
@@ -476,7 +479,7 @@ function plot_mcmc(B,Sigma,B_true,Sigma_true,R,R_true,dir::String="Plots/")
 
 end
 
-function plot_R(R,R_true,dir::String="Plots/")
+function plot_R(R::Array{Float64},R_true::Array{Float64},dir::String="Plots/")
 
     I = size(R)[1]
     N = size(R)[2]
@@ -513,7 +516,7 @@ function plot_R(R,R_true,dir::String="Plots/")
 
 end
 
-function plot_angles(theta,theta_true,dir::String = "Plots/")
+function plot_angles(theta::Array{Float64},theta_true::Array{Float64},dir::String = "Plots/")
 
     I = size(theta)[1]
     N = size(theta)[2]
@@ -547,7 +550,7 @@ function plot_angles(theta,theta_true,dir::String = "Plots/")
 
 end
 
-function identify(B)
+function identify(B::Array{Float64})
     dims = size(B)
     I_max = dims[1]
     d = dims[2]
@@ -560,7 +563,7 @@ function identify(B)
     return B_identified
 end
 
-function angles(R)
+function angles(R::Array{Float64})
         theta2 = acos(R[3,3])
         #theta = pi - theta
         theta3 = atan(R[1,3]/sin(theta2),R[2,3]/sin(theta2))
@@ -580,7 +583,7 @@ function angles(R)
     return [theta1,theta2,theta3]
 end
 
-function identify_t!(theta)
+function identify_t!(theta::Array{Float64})
     
     if theta[1] < -2pi
         theta[1] %= 2pi
@@ -617,7 +620,7 @@ function identify_t!(theta)
     return theta
 end
 
-function identify_angles(theta)
+function identify_angles(theta::Array{Float64})
     N = size(theta)[1]
     for i = 1:N
         theta[i,:] = identify_t!(theta[i,:])
@@ -625,7 +628,7 @@ function identify_angles(theta)
     return theta
 end
 
-function identify_samples(theta)
+function identify_samples(theta::Array{Float64})
     N = size(theta)[1]
     for i = 1:N
         theta[i,:,:] = identify_angles(theta[i,:,:])
@@ -633,16 +636,16 @@ function identify_samples(theta)
     return theta
 end
 
-function verify_svd(X,Y,theta)
+function verify_svd(X::Array{Float64},Y::Array{Float64},theta::Array{Float64})
     R = Rotation(theta[1],theta[2],theta[3])
     return X-Y*R'
 end
 
-function a_mises(rho,gamma,x)
+function a_mises(rho::Float64,gamma::Float64,x::Float64)
     return exp(rho*cos(x-gamma))/(2pi*besseli(0,x))*sin(gamma)
 end
 
-function get_V(B)
+function get_V(B::Array{Float64})
     #Funzione che restituisce una versioen identificata ddella mtrice di rotazione considerata
     #Si tratta di una semplice ortogonalizzazione di Gram-Schmidt
     p = size(B)[2]
@@ -663,7 +666,7 @@ function get_V(B)
     return V
 end
 
-function identify_R_angles(B,R)
+function identify_R_angles(B::Array{Float64},R::Array{Float64})
     R_new = copy(R)
     dim = size(R)
     N = dim[1]
@@ -681,7 +684,7 @@ function identify_R_angles(B,R)
     return thetas
 end
 
-function identify_R(B,R)
+function identify_R(B::Array{Float64},R::Array{Float64})
     R_new = copy(R)
     dim = size(R)
     N = dim[1]
@@ -697,7 +700,7 @@ function identify_R(B,R)
     return R_new
 end
 
-function identify_R_true(B_true,R_true)
+function identify_R_true(B_true::Array{Float64},R_true::Array{Float64})
     dim = size(R_true)
     S = dim[1]
     K = dim[2]
@@ -711,7 +714,7 @@ function identify_R_true(B_true,R_true)
     return R_true_new
 end
 
-function identify_R_angles_true(B_true,R_true)
+function identify_R_angles_true(B_true::Array{Float64},R_true::Array{Float64})
     dim = size(R_true)
     S = dim[1]
     K = dim[2]
@@ -727,8 +730,11 @@ function identify_R_angles_true(B_true,R_true)
     return thetas
 end
 
-function grid_mcmc(T1,T2,T3,B_v,S_v,I_max, burn_in, thin, d,K,p,N,Z,Y, original, samples,theta_true, R_true,mu)
+function grid_mcmc(T1::Vector{Int64},T2::Vector{Int64},T3::Vector{Int64},B_v::Vector{Int64},S_v::Vector{Int64},I_max::Int64, burn_in::Int64, thin::Int64, d::Int64,K::Int64,p::Int64,N::Int64,Z::Array{Float64},Y::Array{Float64}, original::Int, samples::Array{Float64},theta_true::Array{Float64}, R_true::Array{Float64},mu::Array{Float64})
     if isdir("Plots/") == false
+        mkdir("Plots/")
+    else
+        rm("Plots/",recursive=true)
         mkdir("Plots/")
     end
     for t1 in T1
@@ -782,4 +788,25 @@ function grid_mcmc(T1,T2,T3,B_v,S_v,I_max, burn_in, thin, d,K,p,N,Z,Y, original,
     end
 
     
+end
+
+function plot_data(D::Array{Float64})
+
+    N,K,p = size(D)
+
+    X = D[1,:,1]
+    Y = D[1,:,2]
+    Z = D[1,:,3]
+
+    p = scatter(X,Y,Z)
+
+
+    for i=2:N
+        X = D[i,:,1]
+        Y = D[i,:,2]
+        Z = D[i,:,3]
+        scatter!(p,X,Y,Z)
+    end
+    plotlyjs()
+    plot(p)
 end
