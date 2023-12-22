@@ -7,6 +7,8 @@ d = 1; #Numero di covariate
 p = 3; # Numero di coordinate
 z = [1.0] #Matrix of covariates
 
+
+
 #Matrice di design
 Z = kron(I(K),z)
 #Matrice di varianza e covarianza
