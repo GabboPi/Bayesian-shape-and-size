@@ -183,7 +183,7 @@ function makedataset(N::Int64,K::Int64,p::Int64,mu::Vector{Float64},VarCov::Arra
     for i = 1:N
         samples[i,:,:] = reshape(
             rand(
-            MvNormal(mu, VarCov)
+            MvNormal(mu[:,i], VarCov)
             ),
             K,p)
     end
@@ -270,8 +270,8 @@ function mcmc_B!(N::Int64,p::Int64,K::Int64,d::Int64,Sigma::Array{Float64},Z::Ar
     I_Sigma = inv(Sigma)
     for l = 1:p
         for s = 1:N
-            V_s[l,:,:] = V_s[l,:,:] + Z'*I_Sigma*Z
-            M_s[l,:] = M_s[l,:] + Z'*I_Sigma*X[s,:,l]
+            V_s[l,:,:] = V_s[l,:,:] + Z[s,:,:]'*I_Sigma*Z[s,:,:]
+            M_s[l,:] = M_s[l,:] + Z[s,:,:]'*I_Sigma*X[s,:,l]
         end
         V_s[l,:,:] = V_s[l,:,:] +inv(V[l,:,:])
         M_s[l,:] = M_s[l,:] +inv(V[l,:,:])*M[l,:]
@@ -295,7 +295,7 @@ function mcmc_Sigma!(N::Int64,K::Int64,p::Int64,nu::Int64,Psi::Array{Float64},X:
         Psi_s = zeros(K,K);
         for s = 1:N
             for l = 1:p
-                Psi_s = Psi_s + (X[s,:,l]-Z*B[:,:,l]')*(X[s,:,l]-Z*B[:,:,l]')'
+                Psi_s = Psi_s + (X[s,:,l]-Z[s,:,:]*vec(B[:,:,l]'))*(X[s,:,l]-Z[s,:,:]*vec(B[:,:,l]'))'
             end
         end
         Psi_s = Psi_s + Psi
@@ -389,7 +389,7 @@ function mcmc_theta!(N::Int64,B::Array{Float64},Sigma::Array{Float64},theta_last
     return theta, R
 end
     
-function mcmc(I_max::Int64, burn_in::Int64, thin::Int64, d::Int64,K::Int64,p::Int64,N::Int64,Z::Array{Float64},Y::Array{Float64}, original = 0,samples::Array{Float64}=zeros(N,K,p), theta_true::Union{Array,Nothing} = nothing, theta_sim::Union{Array,Nothing} = nothing, beta_sim::Int64 = 0, Sigma_sim::Int64 = 0 )
+function mcmc(I_max::Int64, burn_in::Int64, thin::Int64, d::Int64,K::Int64,p::Int64,N::Int64,Z::Array{Float64},Y::Array{Float64}, original::Int64 = 0,samples::Array{Float64}=zeros(N,K,p), B_true::Union{Array{Float64},Nothing} = nothing, Sigma_true::Union{Array{Float64},Nothing} = nothing, theta_true::Union{Array,Nothing} = nothing, theta_sim::Union{Array,Nothing} = nothing, beta_sim::Int64 = 0, Sigma_sim::Int64 = 0 )
 
     B,M,V,nu,Psi,Sigma_est,theta,R,X = mcmc_setup(I_max,burn_in,thin,d,K,p,N);
 
@@ -405,18 +405,13 @@ function mcmc(I_max::Int64, burn_in::Int64, thin::Int64, d::Int64,K::Int64,p::In
         if beta_sim == 1
             B[i,:,:,:]=mcmc_B!(N,p,K,d,Sigma_est[i-1,:,:],Z,V,M,X[i-1,:,:,:]);
         else
-            Beta1 = [-7; 1; 15]
-            Beta2 = [6; -9; -2]
-            Beta3 = [-5; 12; 7] 
-            mu  = reshape([Beta1; Beta2; Beta3],3,3)
-            #mu = GS(mu)
-            B[i,:,:,:]= mu
+            B[i,:,:,:] = B_true
         end
 
         if Sigma_sim == 1
             Sigma_est[i,:,:]=mcmc_Sigma!(N,K,p,nu,Psi,X[i-1,:,:,:],Z,B[i-1,:,:,:]);
         else
-            Sigma_est[i,:,:]= [1 0.5 0.3; 0.5 2 0.7; 0.3 0.7 1]
+            Sigma_est[i,:,:]= Sigma_true
         end
         
         if original == 0 && isnothing(theta_true)
