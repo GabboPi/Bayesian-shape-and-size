@@ -4,7 +4,7 @@ Random.seed!(123)
 N = 20; #Numero di configurazioni
 K = 3; #Numero di landmark per ogni configurazione
 d = 2; #Numero di covariate
-p = 2; # Numero di coordinate
+p = 3; # Numero di coordinate
 z = repeat([1.0 2.0],N) #Matrix of covariates
 
 #Second covariate is sampled from a normal distribution
@@ -30,7 +30,7 @@ A = rand(Uniform(0,2),K,K)
 Psi = A*A'
 Sigma_true = rand(InverseWishart(nu,Psi))
 
-Sigma_true = 0.01*Matrix(I(K))
+#Sigma_true = 0.1*Matrix(I(K))
 VarCov = kron(I(p),Sigma_true)
 
 
@@ -65,8 +65,8 @@ V_prior = 10.0^4*Matrix(I(K*d))
 
 
 #MCMC 
-theta_sim = [1 0 0] #Se p =2, l'angolo da plottare è il primo--> [1 0 0]
-beta_sim = 1 
+theta_sim = [1 1 1] #Se p =2, l'angolo da plottare è il primo--> [1 0 0]
+beta_sim = 1
 Sigma_sim = 1
 
 plot_flag = [1 1 1 1] #Flag per sceglier equali parametri plottare, l'ordine è [B,Sigma,R,Theta]
@@ -80,11 +80,18 @@ B_true_tensor = permutedims(reshape(B_true,d,K,p,1),(4,1,2,3))
 samples_id,X_id, B_id, B_true_id, R_id, R_true_id, theta_id, theta_true_id =identify_params(Y,B, B_true_tensor, Sigma_est, Sigma_true, R, R_true)
 
 plot_mcmc(B_id,Sigma_est,B_true_id,Sigma_true,R_id,R_true_id,theta_id,theta_true_id,plot_flag)
-plot_mcmc(B,Sigma_est, B_true_tensor,Sigma_true, R, R_true,theta,theta_true,plot_flag,"Unidentified/")
+#Uncomment to plot unidentified data
+#plot_mcmc(B,Sigma_est, B_true_tensor,Sigma_true, R, R_true,theta,theta_true,plot_flag,"Unidentified/")
 
+
+compare(X_id,samples_id)
+
+
+#=
 T1 = [0]
 T2 = [0]
 T3 = [0]
 B_v = [0,1]
 S_v = [0,1]
-#@time grid_mcmc(T1,T2,T3,B_v,S_v,I_max, burn_in, thin, d,K,p,N,Z,Y,nu_prior,Psi_prior,M_prior,V_prior, original, samples,B_true,Sigma_true,theta_true, R_true)
+@time grid_mcmc(T1,T2,T3,B_v,S_v,I_max, burn_in, thin, d,K,p,N,Z,Y,nu_prior,Psi_prior,M_prior,V_prior, original, samples,B_true,Sigma_true,theta_true, R_true)
+=#

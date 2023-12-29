@@ -195,7 +195,7 @@ function makedataset(N::Int64,d::Int64,K::Int64,p::Int64,z::Array{Float64},B::Ar
         V = F.V*P
         U = F.U*P
         Y[i,:,:] = U*Diagonal(F.S)
-        R_true[i,:,:] = V'
+        R_true[i,:,:] = V
         theta_true[i,:] = angles(R_true[i,:,:])
         end
     return samples, Y, R_true, theta_true
@@ -257,7 +257,7 @@ end
 
 function sample_update!(X::Array{Float64},R::Array{Float64},Y::Array{Float64})
     for s = 1:N
-        X[s,:,:] = Y[s,:,:]*R[s,:,:]
+        X[s,:,:] = Y[s,:,:]*R[s,:,:]'
     end
     return X
 end
@@ -413,6 +413,7 @@ function mcmc_theta!(N::Int64,B::Array{Float64},z::Array{Float64},Sigma::Array{F
                 theta[s,1] = theta_true[s,1]
                 theta[s,2] = 0
                 theta[s,3] = 0
+                R[s,:,:] = [cos(theta[s,1]) sin(theta[s,1]); -sin(theta[s,1]) cos(theta[s,1]) ]
             else
                 a = tr(A)
                 b = A[1,2]-A[2,1]
@@ -724,7 +725,7 @@ function get_V(B::Array{Float64})
         end
     elseif p == 2
         if(det(V) < 0)
-            V[:,2] = -V[2,:]
+            V[:,2] = -V[:,2]
         end
     end
     return V
@@ -740,41 +741,12 @@ function identify_R_angles(B::Array{Float64},R::Array{Float64})
     thetas = zeros((N,S,3))
     for i = 1:N
         for s = 1:S
-            R_new[i,s,:,:] = R[i,s,:,:]*get_V(reshape(B[i,1,:,:],K,p))
+            G = get_V(reshape(B[i,1,:,:],K,p))
+            R_new[i,s,:,:] = G'*R[i,s,:,:]
             thetas[i,s,:] = identify_t!(angles(copy(R_new[i,s,:,:])))
         end
     end
     return R_new, thetas
-end
-
-function identify_R(B::Array{Float64},R::Array{Float64})
-    R_new = copy(R)
-    dim = size(R)
-    N = dim[1]
-    S = dim[2]
-    K = dim[3]
-    p = dim[4]
-    for i = 1:N
-        G = get_V(reshape(B[i,1, :,:],K,p))
-        for s = 1:S
-            R_new[i,s,:,:] = R[i,s,:,:]*G
-        end
-    end
-    return R_new
-end
-
-function identify_R_true(B_true::Array{Float64},R_true::Array{Float64})
-    dim = size(R_true)
-    S = dim[1]
-    K = dim[2]
-    p = dim[3]
-
-    R_true_new = copy(R_true)
-    G = get_V(reshape(B_true[1,1,:,:],K,p))
-    for s = 1:S
-        R_true_new[s,:,:] = R_true[s,:,:]*G
-    end
-    return R_true_new
 end
 
 function identify_R_angles_true(B_true::Array{Float64},R_true::Array{Float64})
@@ -787,7 +759,7 @@ function identify_R_angles_true(B_true::Array{Float64},R_true::Array{Float64})
     thetas = zeros((S,3))
     G = get_V(B_true[1,1,:,:])
     for s = 1:S
-        R_true_new[s,:,:] = R_true[s,:,:]*G
+        R_true_new[s,:,:] = G'*R_true[s,:,:]
         thetas[s,:] = identify_t!(angles(R_true_new[s,:,:]))
     end
     return R_true_new, thetas
@@ -912,11 +884,19 @@ function identify_params(Y::Array{Float64},B::Array{Float64}, B_true::Array{Floa
     R_true_id,theta_true_id = identify_R_angles_true(B_true,R_true)
 
     X_id = zeros(I_max,N,K,p)
+    H = Helm(K)
     for i = 2:I_max
         X_id[i,:,:,:] = sample_update!(X_id[i,:,:,:],R_id[i-1,:,:,:],Y)
+        for s =1:N
+            X_id[i,s,:,:] = H*X_id[i,s,:,:]
+        end
     end
+
 
     samples_id = zeros(N,K,p)
     samples_id = sample_update!(samples_id,R_true_id,Y)
+    for s = 1:N
+        samples_id[s,:,:] = H*samples_id[s,:,:]
+    end
     return samples_id, X_id, B_id, B_true_id, R_id, R_true_id, theta_id, theta_true_id
 end
