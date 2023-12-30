@@ -92,8 +92,7 @@ plot_mcmc(B_id,Sigma_est,B_true_id,Sigma_true,R_id,R_true_id,theta_id,theta_true
 
 
 
-#Siccome non ero sicuro dei risultati ottenuti, ho provato a confrontare la configurazione media usando le rotazioni vere e quelle simulate
-#usando la distanza di riemann come criterio
+#Siccome non ero sicuro dei risultati ottenuti, ho provato a confrontare la configurazione media usando le rotazioni vere e quelle simulate 
 X_m = reshape(mean(X_id,dims=[1,2]),K,p)
 samples_m = reshape(mean(samples_id,dims=1),K,p)
 print("riemann distance is:")
