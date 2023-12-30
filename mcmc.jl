@@ -333,13 +333,14 @@ function mcmc_theta!(N::Int64,B::Array{Float64},z::Array{Float64},Sigma::Array{F
         end
 
         #Matrici di rotazione associate ai 3 angoli di Eulero, con convenzione ZXZ
-        R1 = [
-            cos(theta1) sin(theta1) 0;
-            -sin(theta1) cos(theta1) 0;
-            0 0 1
-        ]
 
         if p == 3
+            R1 = [
+                cos(theta1) sin(theta1) 0;
+                -sin(theta1) cos(theta1) 0;
+                0 0 1
+            ]
+
             R2 = [
             1 0 0;
             0 cos(theta2) sin(theta2);
@@ -646,7 +647,7 @@ function angles(R::Array{Float64})
 end
 
 function identify_t!(theta::Array{Float64})
-    
+    #=
     if theta[1] < -2pi
         theta[1] %= 2pi
     end
@@ -656,6 +657,7 @@ function identify_t!(theta::Array{Float64})
     if theta[3] < -2pi
         theta[3] %= 2pi
     end
+    =# 
     
     
     if theta[1] <0
@@ -677,7 +679,6 @@ function identify_t!(theta::Array{Float64})
     if theta[3] > 2pi
         theta[3] %= 2pi
     end
-
 
     return theta
 end
