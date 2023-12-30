@@ -1,7 +1,7 @@
 include("mcmc.jl")
 Random.seed!(090324)
 
-N = 300; #Numero di configurazioni
+N = 20; #Numero di configurazioni
 K = 3; #Numero di landmark per ogni configurazione
 d = 2; #Numero di covariate
 p = 3; # Numero di coordinate
