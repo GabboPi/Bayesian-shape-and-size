@@ -1,7 +1,7 @@
 include("mcmc.jl")
-Random.seed!(090324)
+Random.seed!(292215)
 
-N = 20; #Numero di configurazioni
+N = 100; #Numero di configurazioni
 K = 3; #Numero di landmark per ogni configurazione
 d = 2; #Numero di covariate
 p = 3; # Numero di coordinate
@@ -41,8 +41,9 @@ Sigma_true = rand(InverseWishart(nu,Psi))
 #=
 k = 0.1
 Sigma_true = k*Matrix(I(K))
-VarCov = kron(I(p),Sigma_true)
 =#
+VarCov = kron(I(p),Sigma_true)
+
 
 #Media vera
 mu = rand(Uniform(0,10),d*K*p)
