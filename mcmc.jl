@@ -1,6 +1,7 @@
 using LinearAlgebra
 using Distributions
 using Random
+using Statistics
 using Plots
 
 # ------ FUNZIONI --------- #
@@ -625,8 +626,10 @@ function identify(B::Array{Float64})
     p = dims[4]
     B_identified = zeros(I_max,d,K,p)
     for i = 1:I_max
+        V = get_V(B[i,1,:,:])
         for h=1:d
-            B_identified[i,h,:,:] = GS(B[i,h,:,:])
+            #B_identified[i,h,:,:] = GS(B[i,h,:,:])
+            B_identified[i,h,:,:] = B[i,h,:,:]*V
         end
     end
     return B_identified

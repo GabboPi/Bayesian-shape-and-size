@@ -1,13 +1,20 @@
 include("mcmc.jl")
 Random.seed!(292215)
 
-N = 100; #Numero di configurazioni
+N = 50; #Numero di configurazioni
 K = 3; #Numero di landmark per ogni configurazione
 d = 2; #Numero di covariate
 p = 3; # Numero di coordinate
 
 if d ==1
     z = repeat([1.0],N) #Matrix of covariates
+    #=
+    for i = 1:N
+        mu = 10
+        sigma = 1
+        z[i] = rand(Normal(mu,sigma))
+    end
+    =#
 end
 
 #Second covariate is sampled from a normal distribution
@@ -18,6 +25,12 @@ if d == 2
         sigma = 1
         z[i,2] = rand(Normal(mu,sigma))
     end
+    #=m = mean(z[:,2])
+    sigma = sqrt(var(z[:,2]))
+    for i = 1:N
+        z[i,2] = (z[i,2]-m)/sigma
+    end
+    =#
 end
 
 
@@ -27,7 +40,8 @@ end
 #Matrice di design
 Z = zeros(N,K,K*d)
 for i =1:N
-    Z[i,:,:] = kron(I(K),reshape(z[i,:],1,d)) #Mi assicuro che il vettore z[i,:] sia riga
+    #Z[i,:,:] = kron(I(K),reshape(z[i,:],1,d)) #Mi assicuro che il vettore z[i,:] sia riga
+    Z[i,:,:] = kron(I(K),z[i,:]')
 end
 
 #Matrice di varianza e covarianza
@@ -46,7 +60,7 @@ VarCov = kron(I(p),Sigma_true)
 
 
 #Media vera
-mu = rand(Uniform(0,10),d*K*p)
+mu = rand(Normal(5,1),d*K*p)
 B_true = reshape(mu,d,K,p)
 mu_true = zeros(K,p)
 
@@ -57,8 +71,8 @@ samples, Y, R_true, theta_true = makedataset(N,d,K,p,z,B_true,VarCov);
 
 #MCMC parameters
 I_max = 30000
-burn_in = 10000
-thin = 1
+burn_in = 20000
+thin = 5
 original = 0 #Se = 1, l'algoritmo usa ad ogni passo le rotazioni vere anzichè quelle simulate
 
 
@@ -77,7 +91,7 @@ theta_sim = [1 1 1] #Se p =2, l'angolo da plottare è il primo--> [1 0 0]
 beta_sim = 1
 Sigma_sim = 1
 
-plot_flag = [1 1 0 0] #Flag per sceglier equali parametri plottare, l'ordine è [B,Sigma,R,Theta]
+plot_flag = [1 1 1 0] #Flag per sceglier equali parametri plottare, l'ordine è [B,Sigma,R,Theta]
 
 
 @time B, Sigma_est, theta, R, X = mcmc(I_max, burn_in, thin, d,K,p,N,z,Z,Y,nu_prior,Psi_prior,M_prior,V_prior, original, samples,B_true, Sigma_true, theta_true,theta_sim,beta_sim,Sigma_sim);
