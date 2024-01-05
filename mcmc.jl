@@ -904,3 +904,19 @@ function identify_params(Y::Array{Float64},B::Array{Float64}, B_true::Array{Floa
     end
     return samples_id, X_id, B_id, B_true_id, R_id, R_true_id, theta_id, theta_true_id
 end
+
+function check_mean(B,B_true,z)
+    K,p = size(B)[3:4]
+    N,d = size(z)
+    B_m = reshape(mean(B,dims=1),d,K,p)
+    B_true = reshape(B_true,d,K,p)
+    mu_true = zeros(K,p)
+    mu = zeros(K,p)
+    for i = 1:N
+        for h = 1:d
+            mu_true += z[i,h]*reshape(B_true[h,:,:],K,p)
+            mu += z[i,h]*reshape(B_m[h,:,:],K,p)
+        end
+    end
+    return mu_true, mu
+end

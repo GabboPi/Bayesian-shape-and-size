@@ -1,7 +1,7 @@
 include("mcmc.jl")
 Random.seed!(292215)
 
-N = 50; #Numero di configurazioni
+N = 20; #Numero di configurazioni
 K = 3; #Numero di landmark per ogni configurazione
 d = 2; #Numero di covariate
 p = 3; # Numero di coordinate
@@ -22,10 +22,11 @@ if d == 2
     z = repeat([1.0 0.0],N) #Matrix of covariates
     for i = 1:N
         mu = 10
-        sigma = 1
+        sigma = 5
         z[i,2] = rand(Normal(mu,sigma))
     end
-    #=m = mean(z[:,2])
+    #=
+    m = mean(z[:,2])
     sigma = sqrt(var(z[:,2]))
     for i = 1:N
         z[i,2] = (z[i,2]-m)/sigma
@@ -61,6 +62,8 @@ VarCov = kron(I(p),Sigma_true)
 
 #Media vera
 mu = rand(Normal(5,1),d*K*p)
+
+#mu = reshape(1.0*repeat(I(K),2),d,K,p)
 B_true = reshape(mu,d,K,p)
 mu_true = zeros(K,p)
 
@@ -70,9 +73,9 @@ samples, Y, R_true, theta_true = makedataset(N,d,K,p,z,B_true,VarCov);
 
 
 #MCMC parameters
-I_max = 30000
-burn_in = 20000
-thin = 5
+I_max = 90000
+burn_in = 10000
+thin = 500
 original = 0 #Se = 1, l'algoritmo usa ad ogni passo le rotazioni vere anzichè quelle simulate
 
 
@@ -112,6 +115,11 @@ X_m = reshape(mean(X_id,dims=[1,2]),K,p)
 samples_m = reshape(mean(samples_id,dims=1),K,p)
 print("riemann distance is:")
 Riemann_distance(samples_m,X_m)
+
+
+mu,mu_true = check_mean(B_id,B_true_id,z)
+mu
+mu_true
 
 #Uncomment to plot unidentified data
 #plot_mcmc(B,Sigma_est, B_true_tensor,Sigma_true, R, R_true,theta,theta_true,plot_flag,"Unidentified/")
