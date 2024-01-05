@@ -1,5 +1,5 @@
 include("mcmc.jl")
-Random.seed!(292215)
+Random.seed!(0)
 
 N = 20; #Numero di configurazioni
 K = 3; #Numero di landmark per ogni configurazione
@@ -22,7 +22,7 @@ if d == 2
     z = repeat([1.0 0.0],N) #Matrix of covariates
     for i = 1:N
         mu = 10
-        sigma = 5
+        sigma = 1
         z[i,2] = rand(Normal(mu,sigma))
     end
     #=
@@ -65,7 +65,6 @@ mu = rand(Normal(5,1),d*K*p)
 
 #mu = reshape(1.0*repeat(I(K),2),d,K,p)
 B_true = reshape(mu,d,K,p)
-mu_true = zeros(K,p)
 
 
 #Build dataset
@@ -75,7 +74,7 @@ samples, Y, R_true, theta_true = makedataset(N,d,K,p,z,B_true,VarCov);
 #MCMC parameters
 I_max = 90000
 burn_in = 10000
-thin = 500
+thin = 20
 original = 0 #Se = 1, l'algoritmo usa ad ogni passo le rotazioni vere anzichè quelle simulate
 
 
@@ -91,7 +90,7 @@ V_prior = 10.0^6*Matrix(I(K*d))
 
 #MCMC 
 theta_sim = [1 1 1] #Se p =2, l'angolo da plottare è il primo--> [1 0 0]
-beta_sim = 1
+beta_sim = 0
 Sigma_sim = 1
 
 plot_flag = [1 1 1 0] #Flag per sceglier equali parametri plottare, l'ordine è [B,Sigma,R,Theta]
