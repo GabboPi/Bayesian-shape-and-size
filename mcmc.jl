@@ -6,11 +6,11 @@ using Plots
 
 # ------ FUNZIONI --------- #
 function Helm(k)
-    H = zeros(k,k);
-    for j = 1:k 
+    H = zeros(k-1,k);
+    for j = 1:k-1 
         dj = 1/sqrt(j*(j+1))
-        H[j,1:j-1] = -dj*ones(1,j-1);
-        H[j,j] = j*dj
+        H[j,1:j] = -dj*ones(1,j);
+        H[j,j+1] = j*dj
     end
     return H
 end
@@ -167,6 +167,7 @@ function makedataset(N::Int64,d::Int64,K::Int64,p::Int64,z::Array{Float64},B::Ar
         for h = 1:d
             mu += z[i,h]*B[h,:,:]
         end
+        display(mu)
         samples[i,:,:] = reshape(
             rand(
             MvNormal(vec(mu), VarCov)
@@ -178,14 +179,22 @@ function makedataset(N::Int64,d::Int64,K::Int64,p::Int64,z::Array{Float64},B::Ar
     for i in 1:N
         global P = zeros(p,p)
         F = svd(samples[i,:,:])
+        U = F.U
+        V = F.V
 
         #Se la matrice V non è in SO(3) effettuo una permutazione
         #per assicurarmi di ottenere una rotazione
         if(det(F.Vt) < 0)
                 if p == 3
                     P = [-1 0 0; 0 1 0; 0 0 1]
+                    P = [1 0 0; 0 -1 0; 0 0 1]
+                    V[:,2] = - V[:,2]
+                    U[:,2] = -U[:,2]
                 elseif p == 2
                     P = [-1 0; 0 1]
+                    P = [1 0; 0 -1]
+                    V[:,2] = - V[:,2]
+                    U[:,2] = -U[:,2]
                 end
             elseif (det(F.Vt) > 0)
                 P = I(p)
@@ -193,8 +202,9 @@ function makedataset(N::Int64,d::Int64,K::Int64,p::Int64,z::Array{Float64},B::Ar
                 print("Matrix is singular!")
                 break
             end
-        V = F.V*P
-        U = F.U*P
+        #V = F.V*P
+        #V = P*F.V
+        #U = F.U*P
         Y[i,:,:] = U*Diagonal(F.S)
         R_true[i,:,:] = V
         theta_true[i,:] = angles(R_true[i,:,:])
@@ -235,7 +245,7 @@ function mcmc_setup(I_max::Int64,burn_in::Int64,thin::Int64,d::Int64,K::Int64,p:
     theta = zeros(I_max,N,3)
     #Inizializzo gli angoli a zero 
     theta[1,:,1] = zeros(N);
-    theta[1,:,2] = zeros(N);
+    theta[1,:,2] = ones(N);
     theta[1,:,3] = zeros(N);
 
     #Valori iniziali delle rotazioni
@@ -313,22 +323,22 @@ function mcmc_theta!(N::Int64,B::Array{Float64},z::Array{Float64},Sigma::Array{F
     p = size(B)[3]
     theta = zeros(N,3)
     R = zeros(N,p,p)
+    I_Sigma = inv(Sigma[:,:])
     for s = 1:N
-
 
         m = zeros(K,p)
         for h = 1:d
             m += z[s,h]*B[h,:,:]
         end
 
-        A = m'*inv(Sigma[:,:])*Y[s,:,:]
+        A = m'*I_Sigma*Y[s,:,:]
 
         theta1 = theta_last[s,1]
 
         if p == 2
             theta2 = 0
             theta3 = 0
-        elseif p > 2
+        elseif p == 3
             theta2 = theta_last[s,2]
             theta3 = theta_last[s,3]
         end
@@ -463,6 +473,8 @@ function mcmc(I_max::Int64, burn_in::Int64, thin::Int64, d::Int64,K::Int64,p::In
             theta[i,:,:], R[i,:,:,:] = mcmc_theta!(N,B[i,:,:,:],z,Sigma_est[i,:,:],theta[i-1,:,:]);
         elseif !isnothing(theta_true)
             theta[i,:,:], R[i,:,:,:] = mcmc_theta!(N,B[i,:,:,:],z,Sigma_est[i,:,:],theta[i-1,:,:], theta_true, theta_sim)
+            #theta[i,:,:], R[i,:,:,:] = mcmc_theta_new!(N,B[i,:,:,:],z,Sigma_est[i,:,:],theta[i-1,:,:], theta_true, theta_sim)
+            #theta[i,:,:], R[i,:,:,:] = mcmc_R!(N,B[i,:,:,:],z,Sigma_est[i,:,:],theta[i-1,:,:], theta_true, theta_sim)
         end
         
         if i%1000 == 0
@@ -639,13 +651,19 @@ function angles(R::Array{Float64})
         p = size(R)[2]
         if p == 3
             theta2 = acos(R[3,3])
-            theta3 = atan(R[1,3]/sin(theta2),R[2,3]/sin(theta2))
-            theta1 = atan(R[3,1]/sin(theta2), -R[3,2]/sin(theta2))
+            if theta2 == 0
+                theta1 = 0
+                theta3 = 2pi
+            else
+                theta3 = atan(R[1,3]/sin(theta2),R[2,3]/sin(theta2))
+                theta1 = atan(R[3,1]/sin(theta2), -R[3,2]/sin(theta2))
+            end
         elseif p == 2
             theta1 = atan(R[1,2],R[1,1])
             theta2 = 0
             theta3 = 0
         end
+
     return [theta1,theta2,theta3]
 end
 
@@ -888,11 +906,10 @@ function identify_params(Y::Array{Float64},B::Array{Float64}, B_true::Array{Floa
     R_true_id,theta_true_id = identify_R_angles_true(B_true,R_true)
 
     X_id = zeros(I_max,N,K,p)
-    H = Helm(K)
     for i = 2:I_max
         X_id[i,:,:,:] = sample_update!(X_id[i,:,:,:],R_id[i-1,:,:,:],Y)
         for s =1:N
-            X_id[i,s,:,:] = H*X_id[i,s,:,:]
+            X_id[i,s,:,:] = X_id[i,s,:,:]
         end
     end
 
@@ -900,7 +917,7 @@ function identify_params(Y::Array{Float64},B::Array{Float64}, B_true::Array{Floa
     samples_id = zeros(N,K,p)
     samples_id = sample_update!(samples_id,R_true_id,Y)
     for s = 1:N
-        samples_id[s,:,:] = H*samples_id[s,:,:]
+        samples_id[s,:,:] = samples_id[s,:,:]
     end
     return samples_id, X_id, B_id, B_true_id, R_id, R_true_id, theta_id, theta_true_id
 end

@@ -1,13 +1,14 @@
 include("mcmc.jl")
-Random.seed!(0)
+include("metropolis.jl")
+Random.seed!(292215)
 
-N = 20; #Numero di configurazioni
+N = 50; #Numero di configurazioni
 K = 3; #Numero di landmark per ogni configurazione
-d = 2; #Numero di covariate
+d = 1; #Numero di covariate
 p = 3; # Numero di coordinate
 
 if d ==1
-    z = repeat([1.0],N) #Matrix of covariates
+    z = repeat([1.0],N) #Matri x of covariates
     #=
     for i = 1:N
         mu = 10
@@ -21,7 +22,7 @@ end
 if d == 2
     z = repeat([1.0 0.0],N) #Matrix of covariates
     for i = 1:N
-        mu = 10
+        mu = 0
         sigma = 1
         z[i,2] = rand(Normal(mu,sigma))
     end
@@ -39,7 +40,7 @@ end
 
 
 #Matrice di design
-Z = zeros(N,K,K*d)
+Z = zeros(N,K,(K)*d)
 for i =1:N
     #Z[i,:,:] = kron(I(K),reshape(z[i,:],1,d)) #Mi assicuro che il vettore z[i,:] sia riga
     Z[i,:,:] = kron(I(K),z[i,:]')
@@ -48,16 +49,16 @@ end
 #Matrice di varianza e covarianza
 
 
-nu = 5.0
+#=nu = 5.0
 A = rand(Uniform(0,2),K,K)
 Psi = A*A'
 Sigma_true = rand(InverseWishart(nu,Psi))
-
-#=
-k = 0.1
-Sigma_true = k*Matrix(I(K))
 =#
-VarCov = kron(I(p),Sigma_true)
+
+k = 1
+Sigma_true = 1.0*k*Matrix(I(K))
+
+VarCov = 1.0*kron(I(p),Sigma_true)
 
 
 #Media vera
@@ -65,6 +66,10 @@ mu = rand(Normal(5,1),d*K*p)
 
 #mu = reshape(1.0*repeat(I(K),2),d,K,p)
 B_true = reshape(mu,d,K,p)
+B_true_H = zeros(d,K-1,p)
+for h = 1:d
+    B_true_H[h,:,:] = Helm(K)*B_true[h,:,:]
+end
 
 
 #Build dataset
@@ -72,9 +77,9 @@ samples, Y, R_true, theta_true = makedataset(N,d,K,p,z,B_true,VarCov);
 
 
 #MCMC parameters
-I_max = 90000
+I_max = 30000
 burn_in = 10000
-thin = 20
+thin = 10
 original = 0 #Se = 1, l'algoritmo usa ad ogni passo le rotazioni vere anzichè quelle simulate
 
 
@@ -90,16 +95,17 @@ V_prior = 10.0^6*Matrix(I(K*d))
 
 #MCMC 
 theta_sim = [1 1 1] #Se p =2, l'angolo da plottare è il primo--> [1 0 0]
-beta_sim = 0
+beta_sim = 1
 Sigma_sim = 1
 
 plot_flag = [1 1 1 0] #Flag per sceglier equali parametri plottare, l'ordine è [B,Sigma,R,Theta]
 
 
-@time B, Sigma_est, theta, R, X = mcmc(I_max, burn_in, thin, d,K,p,N,z,Z,Y,nu_prior,Psi_prior,M_prior,V_prior, original, samples,B_true, Sigma_true, theta_true,theta_sim,beta_sim,Sigma_sim);
+B, Sigma_est, theta, R, X = mcmc(I_max, burn_in, thin, d,K,p,N,z,Z,Y,nu_prior,Psi_prior,M_prior,V_prior, original, samples,B_true, Sigma_true, theta_true,theta_sim,beta_sim,Sigma_sim);
 
 
 B_true_tensor = permutedims(reshape(B_true,d,K,p,1),(4,1,2,3))
+#B_true_tensor=reshape(B_true,1,d,K,p)
 
 samples_id,X_id, B_id, B_true_id, R_id, R_true_id, theta_id, theta_true_id =identify_params(Y,B, B_true_tensor, Sigma_est, Sigma_true, R, R_true)
 
@@ -121,9 +127,9 @@ mu
 mu_true
 
 #Uncomment to plot unidentified data
-#plot_mcmc(B,Sigma_est, B_true_tensor,Sigma_true, R, R_true,theta,theta_true,plot_flag,"Unidentified/")
+plot_mcmc(B,Sigma_est, B_true_tensor,Sigma_true, R, R_true,theta,theta_true,plot_flag,"Unidentified/")
 #Compare unidentified data
-#compare(X,samples)
+compare(X_id,samples_id)
 
 #=
 T1 = [0]
